@@ -14,7 +14,13 @@
 node -v
 ```
 
-如果提示"不是内部或外部命令"，说明未安装。前往 [Node.js 官网](https://nodejs.org/) 下载 LTS 版本，安装时一路默认即可。
+如果提示"不是内部或外部命令"，执行以下命令一键安装：
+
+```bash
+winget install OpenJS.NodeJS.LTS
+```
+
+安装完成后**关闭 CMD 重新打开**，再执行 `node -v` 确认显示版本号即可。
 
 ### 1. 安装依赖
 
