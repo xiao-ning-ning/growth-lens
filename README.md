@@ -14,10 +14,16 @@
 node -v
 ```
 
-如果提示"不是内部或外部命令"，执行以下命令一键安装：
+如果提示"不是内部或外部命令"，执行以下命令安装（任选其一）：
 
+**方式一（推荐）**：使用 Windows 包管理器，自动安装最新 LTS 版本：
 ```bash
 winget install OpenJS.NodeJS.LTS
+```
+
+**方式二**：直接下载安装包静默安装（winget 不可用时使用）：
+```bash
+curl -L "https://nodejs.org/dist/v22.14.0/node-v22.14.0-x64.msi" -o node.msi && node.msi /passive
 ```
 
 安装完成后**关闭 CMD 重新打开**，再执行 `node -v` 确认显示版本号即可。
