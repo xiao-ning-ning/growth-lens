@@ -39,7 +39,7 @@ npm start
 
 浏览器打开 http://localhost:3000 即可使用。
 
-或双击“启动成长力场.bat”即可运行，自动打开浏览器
+或双击 `start.bat` 即可运行，自动打开浏览器
 
 ## 功能
 
@@ -79,5 +79,10 @@ npm start
 - **AI**：OpenAI 兼容接口（JSON mode）
 - **数据**：本地 JSON 文件
 
+## License
+
+[Apache 2.0](LICENSE)
+
 ## 声明
-本程序由AI制作，本人仅提供创意思路及功能审核，代码可能存在未知BUG。
+
+本程序由 AI 制作，本人仅提供创意思路及功能审核，代码可能存在未知 BUG。
