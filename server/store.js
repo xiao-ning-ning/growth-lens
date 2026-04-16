@@ -21,6 +21,8 @@ function getClient() {
  */
 async function callLLM(systemPrompt, userPrompt) {
   const client = getClient();
+  // MiniMax 模型需要 reasoning_split=true 来分离思考过程
+  const isMinimax = (process.env.OPENAI_BASE_URL || '').includes('minimax');
   const response = await client.chat.completions.create({
     model: MODEL,
     messages: [
@@ -29,6 +31,7 @@ async function callLLM(systemPrompt, userPrompt) {
     ],
     temperature: 0.3,
     response_format: { type: 'json_object' },
+    ...(isMinimax ? { extra_body: { reasoning_split: true } } : {}),
   });
 
   if (!response.choices || response.choices.length === 0) {
@@ -40,15 +43,22 @@ async function callLLM(systemPrompt, userPrompt) {
   try {
     return JSON.parse(raw);
   } catch (e) {
-    // 推理模型（如 DeepSeek-R1）可能先输出思考过程，再输出 JSON
-    // 尝试从文本中提取 ```json ... ``` 或 ``` ... ``` 包裹的 JSON
-    const match = raw.match(/```(?:json)?\s*([\s\S]+?)```/) || raw.match(/(\{[\s\S]+\})/);
-    if (match) {
-      try {
-        return JSON.parse(match[1].trim());
-      } catch (e2) {}
+    // 推理模型（如 DeepSeek-R1/MiniMax）可能先输出思考过程（<think>...</think> 或<think>...</think>），需要剥离
+    let cleaned = raw
+      .replace(/\s*<think>[\s\S]*?<\/think>/gi, '\n')
+      .replace(/\s*<think>[\s\S]*?<\/think>/gi, '\n');
+    // 尝试从代码块中提取
+    const codeBlockMatch = cleaned.match(/```(?:json)?[\s\S]*?```/);
+    if (codeBlockMatch) {
+      try { return JSON.parse(codeBlockMatch[1].trim()); } catch (e2) {}
     }
-    throw new Error(`LLM 返回的 JSON 解析失败: ${raw.substring(0, 200)}`);
+    // 尝试找第一个 { 到最后一个 } 的完整 JSON 对象
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      try { return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1)); } catch (e3) {}
+    }
+    throw new Error('LLM 返回的 JSON 解析失败: ' + raw.substring(0, 200));
   }
 }
 

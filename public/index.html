@@ -1642,7 +1642,7 @@ function renderHome(el) {
 
   // Radar chart inline — use categories as axes to match ability map
   const allCategories = (mapData.categories || []).filter(cat => (cat.dimIds || []).length > 0);
-  if (allCategories.length >= 3) {
+  if (allCategories.length >= 1) {
     const catAxes = buildCategoryAxes();
     html += `
     <div class="home-section">
