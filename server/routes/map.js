@@ -5,7 +5,7 @@ const { loadMap, saveMap, createEmptyMap } = require('../store');
 // GET /api/map - 获取地图数据
 router.get('/', (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
     res.json(map);
   } catch (e) {
     res.status(500).json({ error: '加载地图数据失败' });
@@ -15,12 +15,12 @@ router.get('/', (req, res) => {
 // PUT /api/map - 更新地图基本信息
 router.put('/', async (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
     const { owner, speakers, categories } = req.body;
     if (owner !== undefined) map.owner = owner;
     if (speakers !== undefined) map.speakers = speakers;
     if (categories !== undefined) map.categories = categories;
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json(map);
   } catch (e) {
     res.status(500).json({ error: '更新地图数据失败' });
@@ -31,7 +31,7 @@ router.put('/', async (req, res) => {
 router.post('/reset', async (req, res) => {
   try {
     const map = createEmptyMap();
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json(map);
   } catch (e) {
     res.status(500).json({ error: '重置数据失败' });
@@ -41,7 +41,7 @@ router.post('/reset', async (req, res) => {
 // GET /api/map/export - 导出地图 JSON
 router.get('/export', (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
     const filename = `growth-force-field-${map.lastUpdated || 'backup'}.json`;
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -59,7 +59,7 @@ router.post('/import', async (req, res) => {
       return res.status(400).json({ error: '无效的地图数据格式' });
     }
 
-    const map = loadMap();
+    const map = loadMap(req.userId);
 
     // Merge speakers
     for (const sp of (imported.speakers || [])) {
@@ -91,7 +91,7 @@ router.post('/import', async (req, res) => {
       }
     }
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, map, importedDimensions: importedDimCount });
   } catch (e) {
     res.status(500).json({ error: '导入失败: ' + e.message });

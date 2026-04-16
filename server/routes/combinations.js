@@ -5,7 +5,7 @@ const { callLLM, loadMap, saveMap, nextId } = require('../store');
 // POST /api/combinations - 生成/刷新组合分析
 router.post('/', async (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
     if (map.dimensions.length < 2) {
       return res.status(400).json({ error: '至少需要2个维度才能生成组合' });
     }
@@ -93,7 +93,7 @@ ${existingCombos.length > 0 ? existingCombos.map(c => `- [${c.id}] ${c.name}: ${
       }
     }
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, map, combinations: newCombos });
 
   } catch (error) {

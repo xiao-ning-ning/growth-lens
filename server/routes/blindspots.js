@@ -5,7 +5,7 @@ const { callLLM, loadMap, saveMap, nextId, syncBlindSpotsToRadarAxes } = require
 // POST /api/blindspots - 生成/刷新盲区探测
 router.post('/', async (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
     if (map.dimensions.length < 2) {
       return res.status(400).json({ error: '至少需要2个维度才能进行盲区探测' });
     }
@@ -102,7 +102,7 @@ ${existingBlinds.length > 0 ? existingBlinds.map(b => `- [${b.id}] ${b.name} (�
     // 更新 radarAxes 的 blindIds
     syncBlindSpotsToRadarAxes(map);
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, map, blindSpots: updates });
 
   } catch (error) {

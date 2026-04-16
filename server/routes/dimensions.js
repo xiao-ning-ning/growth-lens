@@ -10,7 +10,7 @@ router.post('/delete', async (req, res) => {
       return res.status(400).json({ error: '请指定要删除的维度 ID' });
     }
 
-    const map = loadMap();
+    const map = loadMap(req.userId);
     const deleted = [];
 
     for (const dimId of dimensionIds) {
@@ -56,7 +56,7 @@ router.post('/delete', async (req, res) => {
     // Delete axes that became empty
     map.radarAxes = map.radarAxes.filter(axis => (axis.dimIds || []).length > 0);
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, map, deleted });
 
   } catch (error) {
@@ -67,7 +67,7 @@ router.post('/delete', async (req, res) => {
 // PUT /api/dimensions/:id - 更新单个维度
 router.put('/:id', async (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
     const dim = map.dimensions.find(d => d.id === req.params.id);
     if (!dim) return res.status(404).json({ error: '维度不存在' });
 
@@ -79,7 +79,7 @@ router.put('/:id', async (req, res) => {
     if (confidence !== undefined) dim.confidence = confidence;
     if (relatedTo !== undefined) dim.relatedTo = relatedTo;
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, dimension: dim });
 
   } catch (error) {

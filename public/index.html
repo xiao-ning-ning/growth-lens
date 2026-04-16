@@ -52,6 +52,57 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== LOGIN ===== */
+.login-page {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; background: var(--bg);
+}
+.login-box {
+  background: rgba(20, 21, 30, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px 40px 36px;
+  width: 380px;
+  backdrop-filter: blur(30px);
+}
+.login-brand { text-align: center; margin-bottom: 32px; }
+.login-icon { font-size: 48px; margin-bottom: 8px; }
+.login-brand h1 {
+  font-size: 28px; font-weight: 900; margin: 0;
+  background: linear-gradient(135deg, #d8d4ff, #5eead4);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.login-brand p { font-size: 13px; color: var(--text3); margin: 4px 0 0; }
+.login-form { display: flex; flex-direction: column; gap: 16px; }
+.login-field label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.login-field input {
+  width: 100%; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text); font-size: 14px; outline: none;
+  transition: border-color 0.2s;
+}
+.login-field input:focus { border-color: var(--accent); }
+.login-error {
+  font-size: 13px; color: #f87171; text-align: center;
+  padding: 8px; border-radius: 8px; background: rgba(248,113,113,0.08);
+}
+.login-form button[type="submit"] {
+  padding: 12px; border: none; border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  color: #fff; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.login-form button[type="submit"]:hover { opacity: 0.9; }
+.login-form button[type="submit"]:disabled { opacity: 0.5; cursor: not-allowed; }
+.login-hint { text-align: center; font-size: 12px; color: var(--text3); margin-top: 20px; }
+.sidebar-logout {
+  display: block; width: 100%; padding: 10px 22px;
+  background: none; border: none; border-top: 1px solid var(--border);
+  color: var(--text3); font-size: 12px; cursor: pointer; text-align: left;
+  transition: color 0.2s;
+}
+.sidebar-logout:hover { color: var(--text2); }
+
 /* ===== LAYOUT ===== */
 .app { display: flex; height: 100vh; }
 
@@ -482,6 +533,12 @@ body {
   box-shadow: 0 0 0 3px var(--glow-accent);
 }
 textarea.form-input { min-height: 300px; resize: vertical; line-height: 1.7; }
+.file-upload-zone { border: 2px dashed var(--border); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.file-upload-zone:hover, .file-upload-zone.drag-over { border-color: var(--accent); background: rgba(108, 92, 231, 0.05); }
+.file-upload-placeholder { color: var(--text3); font-size: 14px; }
+.file-upload-info { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); }
+.file-remove { margin-left: auto; cursor: pointer; opacity: 0.5; font-size: 16px; }
+.file-remove:hover { opacity: 1; color: var(--red); }
 
 .form-row { display: flex; gap: 16px; }
 .form-row .form-group { flex: 1; }
@@ -1113,6 +1170,16 @@ textarea.form-input { min-height: 300px; resize: vertical; line-height: 1.7; }
 <div class="toast-container" id="toastContainer"></div>
 <div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
 
+<div id="app"></div>
+
+<script>
+// ============ STATE ============
+let mapData = null;
+let currentView = 'home';
+let deleteQueue = [];
+
+// ============ MAIN APP HTML ============
+const mainAppHTML = `
 <div class="app">
   <div class="sidebar">
     <div class="sidebar-brand">
@@ -1139,13 +1206,16 @@ textarea.form-input { min-height: 300px; resize: vertical; line-height: 1.7; }
   <div class="main">
     <div class="content" id="content"></div>
   </div>
-</div>
+</div>`;
 
-<script>
-// ============ STATE ============
-let mapData = null;
-let currentView = 'home';
-let deleteQueue = [];
+function bindNavigation() {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const view = item.dataset.view;
+      switchView(view);
+    });
+  });
+}
 // Global loading state: tracks in-progress async operations per view
 const loadingState = {
   analyze: { active: false, progress: 0, label: '', status: null },
@@ -1241,13 +1311,20 @@ const viewTitles = {
 const RADAR_COLORS = ['#6c5ce7', '#a29bfe', '#00cec9', '#55efc4', '#fd79a8', '#fdcb6e', '#74b9ff', '#ff7675'];
 
 // ============ API ============
-async function api(url, method = 'GET', body = null, timeoutMs = 180000) {
+let currentUser = null;
+
+async function api(url, method = 'GET', body = null, timeoutMs = 600000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const opts = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal };
+  const opts = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal, credentials: 'same-origin' };
   if (body) opts.body = JSON.stringify(body);
   try {
     const res = await fetch(url, opts);
+    if (res.status === 401) {
+      currentUser = null;
+      showLoginPage();
+      throw new Error('登录已过期，请重新登录');
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(text || `HTTP ${res.status}`);
@@ -1265,12 +1342,6 @@ async function loadMap() {
 }
 
 // ============ NAVIGATION ============
-document.querySelectorAll('.nav-item').forEach(item => {
-  item.addEventListener('click', () => {
-    const view = item.dataset.view;
-    switchView(view);
-  });
-});
 
 function goToDimension(dimId) {
   switchView('map');
@@ -1627,23 +1698,64 @@ function renderAnalyze(el) {
         </div>
       </div>
       <div class="form-group">
-        <label>录音转写文本</label>
-        <textarea class="form-input" id="transcript" placeholder="粘贴录音转写文本到这里..."></textarea>
+        <label>录音转写文件</label>
+        <div class="file-upload-zone" id="dropZone">
+          <div class="file-upload-placeholder" id="filePlaceholder">
+            <div style="font-size:32px;opacity:0.4;margin-bottom:8px">&#128196;</div>
+            <div>点击选择或拖拽 .txt 文件到此处</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:4px">支持任意长度的转写文本，不会截断</div>
+          </div>
+          <div class="file-upload-info" id="fileInfo" style="display:none">
+            <span>&#128196;</span>
+            <span id="fileName"></span>
+            <span id="fileSize" style="color:var(--text3);font-size:12px"></span>
+            <span class="file-remove" onclick="clearFile()" title="移除文件">&#10005;</span>
+          </div>
+          <input type="file" id="fileInput" accept=".txt,.text" style="display:none">
+        </div>
       </div>
       <button class="btn primary" id="analyzeBtn" onclick="doAnalyze()">开始分析</button>
       <div id="analyzeResult"></div>
     </div>`;
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropZone.onclick = () => fileInput.click();
+  dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); };
+  dropZone.ondragleave = () => dropZone.classList.remove('drag-over');
+  dropZone.ondrop = (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); selectFile(e.dataTransfer.files[0]); };
+  fileInput.onchange = () => { if (fileInput.files[0]) selectFile(fileInput.files[0]); };
+}
+
+let selectedFile = null;
+
+function selectFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('filePlaceholder').style.display = 'none';
+  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('fileName').textContent = file.name;
+  const kb = (file.size / 1024).toFixed(1);
+  const mb = (file.size / 1024 / 1024).toFixed(1);
+  document.getElementById('fileSize').textContent = file.size > 1024 * 1024 ? ` (${mb} MB)` : ` (${kb} KB)`;
+}
+
+function clearFile() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('filePlaceholder').style.display = '';
+  document.getElementById('fileInfo').style.display = 'none';
 }
 
 async function doAnalyze() {
   const btn = document.getElementById('analyzeBtn');
   const resultEl = document.getElementById('analyzeResult');
-  const transcript = document.getElementById('transcript').value.trim();
   const speakerName = document.getElementById('speakerName').value.trim();
   const sourceName = document.getElementById('sourceName').value.trim();
 
-  if (!transcript || !speakerName) {
-    toast('请填写说话人名称和录音文本', 'error');
+  if (!selectedFile || !speakerName) {
+    toast('请选择录音转写文件并填写说话人名称', 'error');
     return;
   }
 
@@ -1655,10 +1767,47 @@ async function doAnalyze() {
   resultEl.innerHTML = '<div class="loading"><div class="spinner"></div>AI 正在深度分析行为模式...</div>';
 
   try {
-    const result = await api('/api/analyze', 'POST', { transcript, speakerName, sourceName, date: new Date().toISOString().split('T')[0] });
+    // 使用 FormData 直接上传文件，不经过 textarea，不会截断
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('speakerName', speakerName);
+    formData.append('sourceName', sourceName);
+    formData.append('date', new Date().toISOString().split('T')[0]);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 600000);
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+      credentials: 'same-origin',
+    });
+    clearTimeout(timer);
+
+    if (res.status === 401) {
+      currentUser = null;
+      showLoginPage();
+      throw new Error('登录已过期，请重新登录');
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+
+    const result = await res.json();
     mapData = result.map;
     stopLoading('analyze');
     toast('分析完成', 'success');
+
+    // 级联更新：清除派生数据，下次访问时重新生成
+    delete mapData.combinations;
+    delete mapData.blindSpots;
+    delete mapData.paths;
+    updateSidebarCounts();
+    if (currentView === 'home') renderHome();
+    if (currentView === 'combos') renderCombos();
+    if (currentView === 'blindspots') renderBlindspots();
+    if (currentView === 'paths') renderPaths();
 
     const updates = result.updates;
     let html = `<div class="analyze-result"><h3>分析结果</h3><p>${esc(result.summary)}</p>`;
@@ -2352,6 +2501,16 @@ function renderSettings(el) {
         <p style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.6">通过项目根目录的 <code>.env</code> 文件管理。修改后需重启服务。</p>
         <div id="apiStatusConfig"><div class="loading"><div class="spinner"></div>加载中...</div></div>
       </div>
+      <div class="settings-card" id="userMgmtCard" style="display:none">
+        <h3>用户管理</h3>
+        <div id="userMgmtContent"><div class="loading"><div class="spinner"></div>加载中...</div></div>
+      </div>
+      <div class="settings-card">
+        <h3>修改密码</h3>
+        <div class="form-group"><label>当前密码</label><input class="form-input" type="password" id="oldPwd"></div>
+        <div class="form-group"><label>新密码（至少8位）</label><input class="form-input" type="password" id="newPwd"></div>
+        <button class="btn primary" onclick="changePassword()">修改密码</button>
+      </div>
     </div>`;
 
   // Load actual API status
@@ -2387,6 +2546,97 @@ function renderSettings(el) {
     const configEl = document.getElementById('apiStatusConfig');
     if (configEl) configEl.innerHTML = '<p style="color:var(--red)">无法获取 API 配置信息</p>';
   });
+
+  // Load user management if admin
+  if (currentUser && currentUser.role === 'admin') {
+    const card = document.getElementById('userMgmtCard');
+    if (card) card.style.display = 'block';
+    loadUserMgmt();
+  }
+}
+
+async function changePassword() {
+  const oldPwd = document.getElementById('oldPwd').value;
+  const newPwd = document.getElementById('newPwd').value;
+  if (!oldPwd || !newPwd) return toast('请填写当前密码和新密码', 'error');
+  if (newPwd.length < 8) return toast('新密码不能少于8位', 'error');
+  try {
+    await api('/api/auth/change-password', 'POST', { oldPassword: oldPwd, newPassword: newPwd });
+    toast('密码已修改', 'success');
+    document.getElementById('oldPwd').value = '';
+    document.getElementById('newPwd').value = '';
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadUserMgmt() {
+  const el = document.getElementById('userMgmtContent');
+  if (!el) return;
+  try {
+    const res = await api('/api/auth/users');
+    const users = res.users || [];
+    el.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="border-bottom:1px solid var(--border);color:var(--text2)">
+          <th style="text-align:left;padding:8px 4px">用户名</th>
+          <th style="text-align:left;padding:8px 4px">角色</th>
+          <th style="text-align:left;padding:8px 4px">创建时间</th>
+          <th style="text-align:right;padding:8px 4px">操作</th>
+        </tr>
+        ${users.map(u => `
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+            <td style="padding:8px 4px;color:var(--text)">${esc(u.username)}</td>
+            <td style="padding:8px 4px;color:var(--text2)">${u.role === 'admin' ? '管理员' : '普通用户'}</td>
+            <td style="padding:8px 4px;color:var(--text3);font-size:12px">${(u.createdAt || '').split('T')[0]}</td>
+            <td style="padding:8px 4px;text-align:right">
+              ${u.username !== 'admin' ? `
+                <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:4px" onclick="resetUserPwd('${esc(u.username)}')">重置密码</button>
+                <button class="btn danger" style="padding:4px 10px;font-size:12px;margin-left:4px" onclick="deleteUser('${esc(u.username)}')">删除</button>
+              ` : '<span style="font-size:12px;color:var(--text3)">管理员账号</span>'}
+            </td>
+          </tr>
+        `).join('')}
+      </table>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <h4 style="font-size:13px;margin-bottom:10px;color:var(--text2)">添加新用户</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="form-input" id="newUser" placeholder="用户名（字母/数字/下划线）" style="flex:1;min-width:120px">
+          <input class="form-input" type="password" id="newUserPwd" placeholder="密码（至少8位）" style="flex:1;min-width:120px">
+          <button class="btn primary" style="padding:8px 16px" onclick="addUser()">添加</button>
+        </div>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = '<p style="color:var(--red)">加载用户列表失败</p>';
+  }
+}
+
+async function addUser() {
+  const username = document.getElementById('newUser').value.trim();
+  const password = document.getElementById('newUserPwd').value;
+  if (!username || !password) return toast('请填写用户名和密码', 'error');
+  if (password.length < 8) return toast('密码不能少于8位', 'error');
+  try {
+    await api('/api/auth/users', 'POST', { username, password, role: 'user' });
+    toast('用户 ' + username + ' 已创建', 'success');
+    loadUserMgmt();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteUser(username) {
+  if (!confirm('确定删除用户 ' + username + '？该用户的数据将一并删除。')) return;
+  try {
+    await api('/api/auth/users/delete', 'POST', { username });
+    toast('用户已删除', 'success');
+    loadUserMgmt();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function resetUserPwd(username) {
+  const newPwd = prompt('请输入 ' + username + ' 的新密码（至少8位）：');
+  if (!newPwd || newPwd.length < 8) return toast('密码不能少于8位', 'error');
+  try {
+    await api('/api/auth/users/reset-password', 'POST', { username, newPassword: newPwd });
+    toast('密码已重置', 'success');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function saveOwner() {
@@ -2459,8 +2709,95 @@ async function resetMap() {
   }
 }
 
+// ============ AUTH ============
+function showLoginPage() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="login-page">
+      <div class="login-box">
+        <div class="login-brand">
+          <div class="login-icon">&#127793;</div>
+          <h1>成长力场</h1>
+          <p>Growth Force Field</p>
+        </div>
+        <form id="loginForm" class="login-form">
+          <div class="login-field">
+            <label>用户名</label>
+            <input type="text" id="loginUser" autocomplete="username" placeholder="请输入用户名" required>
+          </div>
+          <div class="login-field">
+            <label>密码</label>
+            <input type="password" id="loginPass" autocomplete="current-password" placeholder="请输入密码" required>
+          </div>
+          <div id="loginError" class="login-error" style="display:none"></div>
+          <button type="submit" id="loginBtn">登 录</button>
+        </form>
+        <p class="login-hint">首次使用请登录管理员账号 (admin / admin123456)</p>
+      </div>
+    </div>`;
+  document.getElementById('loginForm').addEventListener('submit', handleLogin);
+  document.getElementById('loginUser').focus();
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  if (!username || !password) { errEl.textContent = '请输入用户名和密码'; errEl.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = '登录中...'; errEl.style.display = 'none';
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '登录失败');
+    currentUser = data.user;
+    initApp();
+  } catch (e) {
+    errEl.textContent = e.message; errEl.style.display = 'block';
+    btn.disabled = false; btn.textContent = '登 录';
+  }
+}
+
+async function handleLogout() {
+  try { await api('/api/auth/logout', 'POST'); } catch(e) {}
+  currentUser = null;
+  showLoginPage();
+}
+
+function initApp() {
+  document.getElementById('app').innerHTML = mainAppHTML;
+  bindNavigation();
+  // Add logout button
+  const footer = document.querySelector('.sidebar-footer');
+  if (footer) {
+    const logoutBtn = document.createElement('button');
+    logoutBtn.className = 'sidebar-logout';
+    logoutBtn.textContent = '退出登录 (' + currentUser.username + ')';
+    logoutBtn.onclick = handleLogout;
+    footer.parentNode.insertBefore(logoutBtn, footer);
+  }
+  loadMap().then(() => renderView('home'));
+}
+
 // ============ INIT ============
-loadMap().then(() => renderView('home'));
+fetch('/api/auth/me', { credentials: 'same-origin' })
+  .then(r => {
+    if (r.ok) return r.json();
+    throw new Error('not logged in');
+  })
+  .then(data => {
+    currentUser = data.user;
+    initApp();
+  })
+  .catch(() => {
+    showLoginPage();
+  });
 
 // Redraw radar charts on window resize
 let resizeTimer = null;

@@ -5,7 +5,7 @@ const { callLLM, loadMap, saveMap } = require('../store');
 // POST /api/correct - 纠错引用
 router.post('/', async (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
 
     // 收集所有未纠错的证据
     const uncorrected = [];
@@ -93,7 +93,7 @@ ${uncorrected.map((item, i) => `
       });
     }
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
 
     res.json({
       success: true,
@@ -112,7 +112,7 @@ ${uncorrected.map((item, i) => `
 router.post('/revert', async (req, res) => {
   try {
     const { dimensionId, quote, evidenceIndex } = req.body;
-    const map = loadMap();
+    const map = loadMap(req.userId);
 
     const dim = map.dimensions.find(d => d.id === dimensionId);
     if (!dim) return res.status(404).json({ error: '维度不存在' });
@@ -134,7 +134,7 @@ router.post('/revert', async (req, res) => {
     }
     ev.corrected = false;
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true });
 
   } catch (error) {

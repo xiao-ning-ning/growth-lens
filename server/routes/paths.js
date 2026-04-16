@@ -5,7 +5,7 @@ const { callLLM, loadMap, saveMap, nextId } = require('../store');
 // POST /api/paths - 生成/刷新修炼路径
 router.post('/', async (req, res) => {
   try {
-    const map = loadMap();
+    const map = loadMap(req.userId);
 
     const developingDims = map.dimensions.filter(d => d.status === 'developing');
     const blindSpots = map.blindSpots;
@@ -32,8 +32,10 @@ router.post('/', async (req, res) => {
       })),
     ];
 
+    // 精简数据量：描述截断到 100 字，减少 token 加快响应
     const levers = possessedDims.map(d => ({
-      id: d.id, name: d.name, description: d.description,
+      id: d.id, name: d.name,
+      description: d.description,
     }));
 
     const systemPrompt = `你是能力发展教练。为待发展的能力和感知盲区设计可落地的修炼路径。
@@ -119,7 +121,7 @@ ${levers.map(d => `- [${d.id}] ${d.name}: ${d.description}`).join('\n')}
       }
     }
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, map, paths: updates });
 
   } catch (error) {

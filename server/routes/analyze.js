@@ -1,16 +1,61 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const { callLLM, loadMap, saveMap, nextId, syncBlindSpotsToRadarAxes } = require('../store');
+const fs = require('fs');
+const path = require('path');
 
-// POST /api/analyze - 分析录音文本
-router.post('/', async (req, res) => {
+// 五大固定分类
+const FIXED_CATEGORIES = [
+  { name: '战略与诊断', icon: '🎯', description: '方向判断、问题定位、格局视野、风险预见' },
+  { name: '管控与绩效', icon: '⚡', description: '目标管理、流程管控、结果导向、绩效追踪' },
+  { name: '人心与温度', icon: '💚', description: '关系建立、共情理解、激励认可、团队凝聚' },
+  { name: '知识与赋能', icon: '📚', description: '经验萃取、知识传递、辅导带教、能力复制' },
+  { name: '制度与设计', icon: '⚙️', description: '机制建设、规则制定、流程设计、系统搭建' },
+];
+
+// 将 LLM 返回的分类名归一化到五大分类之一
+function normalizeCategory(categoryName) {
+  if (!categoryName) return FIXED_CATEGORIES[0];
+  // 精确匹配
+  const exact = FIXED_CATEGORIES.find(c => c.name === categoryName);
+  if (exact) return exact;
+  // 模糊匹配：看分类名中的关键词
+  const lower = categoryName.toLowerCase();
+  if (/战略|诊断|方向|判断|格局|风险/i.test(lower)) return FIXED_CATEGORIES[0];
+  if (/管控|绩效|目标|流程|结果|追踪/i.test(lower)) return FIXED_CATEGORIES[1];
+  if (/人心|温度|关系|共情|激励|团队|情感/i.test(lower)) return FIXED_CATEGORIES[2];
+  if (/知识|赋能|经验|传递|辅导|带教|培训/i.test(lower)) return FIXED_CATEGORIES[3];
+  if (/制度|设计|机制|规则|流程|系统|搭建/i.test(lower)) return FIXED_CATEGORIES[4];
+  // 无法归类，默认归入"制度与设计（扩展）"
+  return { name: categoryName, icon: '📌', description: categoryName };
+}
+
+// 配置 multer：内存存储，不写临时文件
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+});
+
+// POST /api/analyze - 分析录音文本（支持文件上传和文本两种方式）
+router.post('/', upload.single('file'), async (req, res) => {
   try {
-    const { transcript, speakerName, sourceName, date } = req.body;
-    if (!transcript || !speakerName) {
-      return res.status(400).json({ error: '缺少必要参数: transcript, speakerName' });
+    let transcript = '';
+    const { speakerName, sourceName, date } = req.body;
+
+    if (req.file) {
+      // 文件上传方式：直接从 buffer 读取，不经过 textarea
+      transcript = req.file.buffer.toString('utf-8');
+    } else if (req.body.transcript) {
+      // 文本方式：兼容旧逻辑
+      transcript = req.body.transcript;
     }
 
-    const map = loadMap();
+    if (!transcript || !speakerName) {
+      return res.status(400).json({ error: '缺少必要参数: 文件或文本, speakerName' });
+    }
+
+    const map = loadMap(req.userId);
     const existingDimsSummary = map.dimensions.map(d => ({
       id: d.id, name: d.name, status: d.status, category: d.category,
       evidenceCount: d.evidence.length, description: d.description,
@@ -30,14 +75,16 @@ router.post('/', async (req, res) => {
 6. **维度命名要精准**: 用"战略拆解力"而非"规划能力"，用"温和的残酷"而非"决策力"
 7. **待发展不是否定**: 待发展维度是用来看见潜力和缺口
 
-## 重点分析维度
+## 五大能力分类（必须且只能使用这 5 个分类）
 
-- 决策方式（如何做判断、如何权衡取舍）
-- 沟通模式（如何引导、如何提问、如何回应）
-- 思维结构（如何拆解问题、如何建立因果链）
-- 价值观表达（重视什么、反对什么、权衡标准）
-- 情绪与关系处理（如何面对冲突、如何照顾他人感受）
-- 能力缺口信号（哪些场景只给方向不给方案、哪些领域停留在类比未落地）
+分析维度时，将能力归入以下分类之一：
+1. **战略与诊断**：方向判断、问题定位、格局视野、风险预见
+2. **管控与绩效**：目标管理、流程管控、结果导向、绩效追踪
+3. **人心与温度**：关系建立、共情理解、激励认可、团队凝聚
+4. **知识与赋能**：经验萃取、知识传递、辅导带教、能力复制
+5. **制度与设计**：机制建设、规则制定、流程设计、系统搭建
+
+如果某个能力无法归入以上任何一类，在分类名称中补充说明，格式为"制度与设计（扩展）"这样的扩展形式。
 
 ## 输出格式
 
@@ -105,7 +152,7 @@ ${existingDimsSummary.length > 0 ? existingDimsSummary.map(d =>
     // 处理分析结果，更新地图
     const updates = processAnalysisResult(map, result, speakerName, sourceName, date);
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
 
     res.json({
       success: true,
@@ -162,10 +209,11 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
         continue;
       }
 
-      // 确保分类存在
-      let category = map.categories.find(c => c.name === newDim.categoryName);
-      if (!category && newDim.categoryName) {
-        category = { id: nextId('cat'), name: newDim.categoryName, description: newDim.categoryName, icon: newDim.categoryIcon || '📌' };
+      // 确保分类存在（归一化到五大分类）
+      const normalized = normalizeCategory(newDim.categoryName);
+      let category = map.categories.find(c => c.name === normalized.name);
+      if (!category) {
+        category = { id: nextId('cat'), name: normalized.name, description: normalized.description, icon: normalized.icon };
         map.categories.push(category);
       }
 

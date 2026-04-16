@@ -11,7 +11,7 @@ router.post('/edit', async (req, res) => {
       return res.status(400).json({ error: '缺少必要参数' });
     }
 
-    const map = loadMap();
+    const map = loadMap(req.userId);
     const dim = map.dimensions.find(d => d.id === dimensionId);
     if (!dim) return res.status(404).json({ error: '维度不存在' });
 
@@ -30,7 +30,7 @@ router.post('/edit', async (req, res) => {
     ev.quote = quote;
     ev.corrected = true;
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true });
   } catch (error) {
     console.error('编辑证据失败:', error);

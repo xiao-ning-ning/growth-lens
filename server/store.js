@@ -12,7 +12,7 @@ function getClient() {
   return new OpenAI({
     apiKey,
     baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-    timeout: parseInt(process.env.OPENAI_TIMEOUT || '120000', 10),
+    timeout: parseInt(process.env.OPENAI_TIMEOUT || '300000', 10), // 默认 5 分钟
   });
 }
 
@@ -35,11 +35,20 @@ async function callLLM(systemPrompt, userPrompt) {
     throw new Error('LLM 返回空响应（可能触发了安全过滤），请修改输入后重试');
   }
 
-  const content = response.choices[0].message.content;
+  const raw = response.choices[0].message.content;
+  // 尝试直接解析
   try {
-    return JSON.parse(content);
+    return JSON.parse(raw);
   } catch (e) {
-    throw new Error(`LLM 返回的 JSON 解析失败: ${content.substring(0, 200)}`);
+    // 推理模型（如 DeepSeek-R1）可能先输出思考过程，再输出 JSON
+    // 尝试从文本中提取 ```json ... ``` 或 ``` ... ``` 包裹的 JSON
+    const match = raw.match(/```(?:json)?\s*([\s\S]+?)```/) || raw.match(/(\{[\s\S]+\})/);
+    if (match) {
+      try {
+        return JSON.parse(match[1].trim());
+      } catch (e2) {}
+    }
+    throw new Error(`LLM 返回的 JSON 解析失败: ${raw.substring(0, 200)}`);
   }
 }
 
@@ -64,23 +73,26 @@ async function callLLMText(systemPrompt, userPrompt) {
 
 // ============ 数据管理 ============
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-let writeLock = Promise.resolve();
+const BASE_DATA_DIR = path.join(__dirname, '..', 'data');
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function ensureDataDir(username) {
+  const dir = username
+    ? path.join(BASE_DATA_DIR, username)
+    : BASE_DATA_DIR;
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
-function getMapPath() {
-  return path.join(DATA_DIR, 'cognition-map.json');
+function getMapPath(username) {
+  return path.join(ensureDataDir(username), 'cognition-map.json');
 }
 
-function getBackupPath() {
-  return path.join(DATA_DIR, 'cognition-map.backup.json');
+function getBackupPath(username) {
+  return path.join(ensureDataDir(username), 'cognition-map.backup.json');
 }
 
-function loadMap() {
-  const filePath = getMapPath();
+function loadMap(username) {
+  const filePath = getMapPath(username);
   if (!fs.existsSync(filePath)) return createEmptyMap();
   try {
     const data = fs.readFileSync(filePath, 'utf-8');
@@ -95,7 +107,7 @@ function loadMap() {
   } catch (e) {
     console.error(`[store] Failed to load map: ${e.message}`);
     // If file exists but is corrupted, try to restore from backup
-    const backupPath = getBackupPath();
+    const backupPath = getBackupPath(username);
     if (fs.existsSync(backupPath)) {
       try {
         const backupData = fs.readFileSync(backupPath, 'utf-8');
@@ -120,15 +132,18 @@ function loadMap() {
   }
 }
 
-function saveMap(map) {
-  // Use a simple promise chain as a write lock to prevent concurrent writes
-  writeLock = writeLock.then(() => {
-    ensureDataDir();
-    const filePath = getMapPath();
+const writeLocks = {};
+
+function saveMap(username, map) {
+  // Per-user write lock
+  if (!writeLocks[username]) writeLocks[username] = Promise.resolve();
+  writeLocks[username] = writeLocks[username].then(() => {
+    ensureDataDir(username);
+    const filePath = getMapPath(username);
     // Always keep a backup before writing
     if (fs.existsSync(filePath)) {
       try {
-        fs.copyFileSync(filePath, getBackupPath());
+        fs.copyFileSync(filePath, getBackupPath(username));
       } catch (e) {
         console.error(`[store] Failed to create backup: ${e.message}`);
       }
@@ -137,7 +152,7 @@ function saveMap(map) {
     fs.writeFileSync(filePath, JSON.stringify(map, null, 2), 'utf-8');
     return map;
   });
-  return writeLock;
+  return writeLocks[username];
 }
 
 function createEmptyMap() {

@@ -10,7 +10,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '至少需要2个维度才能合并' });
     }
 
-    const map = loadMap();
+    const map = loadMap(req.userId);
     const dimsToMerge = dimensionIds.map(id => map.dimensions.find(d => d.id === id)).filter(Boolean);
 
     if (dimsToMerge.length < 2) {
@@ -85,7 +85,7 @@ router.post('/', async (req, res) => {
         .filter((v, i, a) => a.indexOf(v) === i);
     }
 
-    await saveMap(map);
+    await saveMap(req.userId, map);
     res.json({ success: true, map, mergedDimension: mergedDim });
 
   } catch (error) {
