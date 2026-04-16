@@ -10,11 +10,26 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '至少需要2个维度才能生成组合' });
     }
 
-    const dimsInfo = map.dimensions.map(d => ({
-      id: d.id, name: d.name, status: d.status,
-      description: d.description, evidenceCount: d.evidence.length,
-      relatedTo: d.relatedTo,
-    }));
+    const dimsInfo = map.dimensions
+      .map(d => ({
+        id: d.id, name: d.name, status: d.status,
+        description: d.description, evidenceCount: d.evidence.length,
+        relatedTo: d.relatedTo,
+      }));
+
+    // 动态阈值：60% 分位数，证据数分布越高阈值越高
+    const evidenceCounts = map.dimensions.map(d => d.evidence.length).sort((a, b) => a - b);
+    const thresholdIndex = Math.max(0, Math.floor(evidenceCounts.length * 0.6) - 1);
+    const evidenceThreshold = evidenceCounts[thresholdIndex];
+
+    const dimMap = Object.fromEntries(dimsInfo.map(d => [d.id, d]));
+
+    // 筛选证据数达到动态阈值的维度
+    const eligibleDims = dimsInfo.filter(d => d.evidenceCount >= evidenceThreshold);
+
+    if (eligibleDims.length < 2) {
+      return res.json({ success: true, message: '达到组合门槛的维度不足（需要至少2个），请先增加更多录音分析以丰富证据', combinations: [] });
+    }
 
     const existingCombos = map.combinations.map(c => ({
       id: c.id, name: c.name, dimensions: c.dimensions,
@@ -24,10 +39,9 @@ router.post('/', async (req, res) => {
 
 ## 组合识别原则
 
-1. 一个维度能补足另一个维度的短板
-2. 多个维度共同作用于同一类场景
-3. 一个维度的输出是另一个维度的输入
-4. 组合名称要精准有力，如"手术刀式管理""温度护城河"——命名本身就是洞察
+1. **有深度才有组合**：只有证据数达到 ${evidenceThreshold} 条以上的维度才算"成熟"，才具备形成组合的资格。证据不足的维度不考虑。
+2. **组合要有名字**：如"手术刀式管理""温度护城河"——命名本身就是洞察，没想好名字的组合说明还不够精准。
+3. **不追求数量**：只输出真正有化学反应的组合，宁少勿多。
 
 ## 输出格式
 
@@ -44,9 +58,9 @@ router.post('/', async (req, res) => {
   ]
 }`;
 
-    const userPrompt = `## 所有维度（共 ${dimsInfo.length} 个）
+    const userPrompt = `## 具备资格的维度（共 ${eligibleDims.length} 个，门槛：≥${evidenceThreshold}条证据）
 
-${dimsInfo.map(d => `- [${d.id}] ${d.name} (${d.status}, ${d.evidenceCount}条证据): ${d.description}`).join('\n')}
+${eligibleDims.map(d => `- [${d.id}] ${d.name} (${d.status}, ${d.evidenceCount}条证据): ${d.description}`).join('\n')}
 
 ${dimsInfo.some(d => d.relatedTo && d.relatedTo.length > 0) ? `
 ### 维度关联关系
@@ -58,43 +72,48 @@ ${dimsInfo.filter(d => d.relatedTo && d.relatedTo.length > 0).map(d =>
 ## 已有组合（共 ${existingCombos.length} 个）
 ${existingCombos.length > 0 ? existingCombos.map(c => `- [${c.id}] ${c.name}: ${c.dimensions.join(', ')}`).join('\n') : '（暂无）'}
 
-请分析所有维度之间的协同关系，生成组合。已有的组合如果仍然成立则保留（用相同 name），新的协同关系则新增。`;
+请分析最有价值的组合，已有组合若仍成立则保留。`;
 
     const result = await callLLM(systemPrompt, userPrompt);
 
     // 更新地图中的组合
-    const validDimIds = new Set(map.dimensions.map(d => d.id));
-    const newCombos = [];
-    for (const combo of (result.combinations || [])) {
-      // 校验 LLM 返回的维度 ID，过滤掉不存在的
-      const validDims = (combo.dimensionIds || []).filter(id => validDimIds.has(id));
-      if (validDims.length < 2) continue; // 组合至少需要2个有效维度
+    const validDimIds = new Set(eligibleDims.map(d => d.id));
 
-      const existing = map.combinations.find(c => c.name === combo.name);
-      if (existing) {
-        // 更新已有组合
-        existing.dimensions = validDims;
-        existing.description = combo.description;
-        existing.scenarios = combo.scenarios;
-        existing.whyPowerful = combo.whyPowerful;
-        newCombos.push({ id: existing.id, name: existing.name, action: '更新' });
-      } else {
-        // 新增组合
-        const id = nextId('combo');
-        map.combinations.push({
-          id,
-          name: combo.name,
-          dimensions: validDims,
-          description: combo.description,
-          scenarios: combo.scenarios,
-          whyPowerful: combo.whyPowerful,
-        });
-        newCombos.push({ id, name: combo.name, action: '新增' });
-      }
-    }
+    // 过滤并附加证据数
+    let parsedCombos = (result.combinations || [])
+      .map(combo => {
+        const validDims = (combo.dimensionIds || []).filter(id => validDimIds.has(id));
+        if (validDims.length < 2) return null;
+        const totalEvidence = validDims.reduce((sum, id) => sum + (dimMap[id]?.evidenceCount || 0), 0);
+        return { ...combo, _dims: validDims, _totalEvidence: totalEvidence };
+      })
+      .filter(Boolean);
+
+    // 贪心不重叠选择：按总证据数降序，依次选不重叠的组合
+    const usedDims = new Set();
+    const selectedCombos = [];
+    parsedCombos
+      .sort((a, b) => b._totalEvidence - a._totalEvidence)
+      .forEach(combo => {
+        const dims = combo._dims.filter(id => !usedDims.has(id));
+        if (dims.length >= 2) {
+          selectedCombos.push({ ...combo, _dims: dims });
+          dims.forEach(id => usedDims.add(id));
+        }
+      });
+
+    // 更新 map
+    map.combinations = selectedCombos.map(combo => ({
+      id: nextId('combo'),
+      name: combo.name,
+      dimensions: combo._dims,
+      description: combo.description,
+      scenarios: combo.scenarios,
+      whyPowerful: combo.whyPowerful,
+    }));
 
     await saveMap(req.userId, map);
-    res.json({ success: true, map, combinations: newCombos });
+    res.json({ success: true, map, combinations: map.combinations.map(c => ({ id: c.id, name: c.name, action: '新增' })) });
 
   } catch (error) {
     console.error('组合分析失败:', error);
