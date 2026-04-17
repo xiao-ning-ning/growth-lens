@@ -1716,7 +1716,7 @@ function renderHome(el) {
       const targetName = p.targetName;
       const outcome = p.expectedOutcome || '';
       html += `
-        <div class="upgrade-path" onclick="goToPath('${p.targetDimension}')">
+        <div class="upgrade-path" onclick="goToPath('${p.id}')">
           <div class="upgrade-from">${isBlind ? '&#128065; 盲区' : '&#127793; 待发展'}</div>
           <span style="font-size:13px;color:var(--text);font-weight:600">${esc(targetName)}</span>
           <div class="upgrade-arrow">&#10132;</div>
