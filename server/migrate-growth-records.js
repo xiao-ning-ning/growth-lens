@@ -50,7 +50,7 @@ function buildRecordsFromMap(map, username) {
   if (!map || !map.dimensions) return [];
 
   // 获取用户显示名（基本信息中设置的姓名）
-  const displayName = map.profile?.name || username;
+  const displayName = map.owner || username;
 
   // 收集所有唯一的 source → dimensions 映射
   const sourceMap = {}; // sourceName → { date, dimensions: { dimId: status }, speakers: Set }

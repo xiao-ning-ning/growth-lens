@@ -18,9 +18,8 @@ function saveGrowthRecord(req, map, source) {
     try { data = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
   }
 
-  // 获取用户显示名（基本信息中设置的姓名，而非录音说话人）
-  const profile = map.profile || {};
-  const displayName = profile.name || userId;
+  // 获取用户显示名：优先用基本信息设置的姓名，其次用账户名
+  const displayName = map.owner || userId;
 
   // 构建维度快照
   const dimensions = {};
