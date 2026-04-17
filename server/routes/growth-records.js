@@ -168,9 +168,8 @@ router.delete('/:recordId', (req, res) => {
 
   // 同步更新 cognition-map
   if (deletedPossessedDims.length > 0) {
-    const mapPath = path.join(__dirname, '../../data/admin/cognition-map.json');
-    // 根据用户确定 map 文件路径
-    const userMapPath = path.join(__dirname, '../../data', userId, 'cognition-map.json');
+    const mapPath = path.join(__dirname, '..', '..', 'data', 'admin', 'cognition-map.json');
+    const userMapPath = path.join(__dirname, '..', '..', 'data', userId, 'cognition-map.json');
     let finalMapPath = null;
     
     if (fs.existsSync(userMapPath)) {
@@ -204,6 +203,8 @@ router.delete('/:recordId', (req, res) => {
       } catch (e) {
         console.error('更新cognition-map失败:', e);
       }
+    } else {
+      console.log('[delete-record] 未找到map文件，userMapPath:', userMapPath, 'mapPath:', mapPath);
     }
   }
   
