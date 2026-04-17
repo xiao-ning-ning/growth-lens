@@ -75,38 +75,25 @@
 
 ## 快速开始
 
-### 环境要求
-- Node.js ≥ 18
-
-### 安装
+### 1. 下载项目
 ```bash
 git clone https://github.com/xiao-ning-ning/growth-force-field.git
-cd growth-force-field
-npm install
 ```
+或直接下载 ZIP 并解压。
 
-### 配置
-创建 `.env` 文件：
+### 2. 双击 start.bat
+会自动检测并安装 Node.js（如未安装），安装依赖，启动服务。
+
+### 3. 配置 API
+首次启动会提示配置 API Key。创建或编辑项目根目录的 `.env` 文件：
 
 ```env
 OPENAI_API_KEY=sk-your-api-key
-OPENAI_BASE_URL=https://api.openai.com/v1   # 可选，默认 OpenAI
-OPENAI_MODEL=gpt-4o                         # 可选，默认 gpt-4o
 ```
 
 支持的接口：OpenAI / DeepSeek / 月之暗面 / 本地 Ollama（任意 OpenAI 兼容接口均可）
 
-### 启动
-```bash
-npm start
-```
 浏览器打开 http://localhost:3000，默认账号 `admin / admin123456`。
-
-### 更新
-```bash
-npm run update
-```
-数据自动备份，自动还原。
 
 ---
 
