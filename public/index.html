@@ -1211,6 +1211,52 @@ textarea.form-input { min-height: 300px; resize: vertical; line-height: 1.7; }
   .home-radar-wrap { flex-direction: column; align-items: center; }
   .home-upgrade { display: none; }
 }
+
+/* ===== USER EDIT MODAL ===== */
+.user-edit-modal {
+  width: 420px;
+  padding: 28px;
+}
+.user-edit-modal h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+.user-edit-modal .user-edit-hint {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 20px;
+}
+.form-group {
+  margin-bottom: 14px;
+}
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.form-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.user-edit-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
 </style>
 </head>
 <body>
@@ -2688,6 +2734,52 @@ function renderSettings(el) {
   }
 }
 
+function openEditUser(username) {
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+  content.innerHTML = `
+    <div class="user-edit-modal">
+      <h3>编辑用户</h3>
+      <p class="user-edit-hint">修改用户名或设置新密码，留空则不修改</p>
+      <input type="hidden" id="editUserOldName" value="${esc(username)}">
+      <div class="form-group">
+        <label>用户名</label>
+        <input class="form-input" id="editUserName" value="${esc(username)}" placeholder="字母/数字/下划线">
+      </div>
+      <div class="form-group">
+        <label>新密码（留空则不修改）</label>
+        <input class="form-input" type="password" id="editUserPwd" placeholder="至少8位">
+        <div class="form-hint">不修改请留空</div>
+      </div>
+      <div class="user-edit-actions">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn primary" onclick="saveEditUser()">保存</button>
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+async function saveEditUser() {
+  const oldName = document.getElementById('editUserOldName').value;
+  const newName = document.getElementById('editUserName').value.trim();
+  const newPwd = document.getElementById('editUserPwd').value;
+
+  if (!newName) return toast('用户名不能为空', 'error');
+  if (!/^[a-zA-Z0-9_]+$/.test(newName)) return toast('用户名只能包含字母、数字和下划线', 'error');
+  if (newPwd && newPwd.length < 8) return toast('密码不能少于8位', 'error');
+
+  try {
+    await api('/api/auth/users', 'PUT', {
+      username: oldName,
+      newUsername: newName !== oldName ? newName : undefined,
+      newPassword: newPwd || undefined,
+    });
+    toast('用户信息已更新', 'success');
+    closeModal();
+    loadUserMgmt();
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 async function changePassword() {
   const oldPwd = document.getElementById('oldPwd').value;
   const newPwd = document.getElementById('newPwd').value;
@@ -2722,7 +2814,7 @@ async function loadUserMgmt() {
             <td style="padding:8px 4px;color:var(--text3);font-size:12px">${(u.createdAt || '').split('T')[0]}</td>
             <td style="padding:8px 4px;text-align:right">
               ${u.username !== 'admin' ? `
-                <button class="btn" style="padding:4px 10px;font-size:12px;margin-left:4px" onclick="resetUserPwd('${esc(u.username)}')">重置密码</button>
+                <button class="btn" style="padding:4px 10px;font-size:12px" onclick="openEditUser('${esc(u.username)}')">编辑</button>
                 <button class="btn danger" style="padding:4px 10px;font-size:12px;margin-left:4px" onclick="deleteUser('${esc(u.username)}')">删除</button>
               ` : '<span style="font-size:12px;color:var(--text3)">管理员账号</span>'}
             </td>

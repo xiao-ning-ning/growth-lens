@@ -157,6 +157,50 @@ router.post('/users', requireAdmin, (req, res) => {
 });
 
 // POST /api/auth/users/delete - delete a user
+
+// PUT /api/auth/users - update a user's username or password (admin)
+router.put('/users', requireAdmin, (req, res) => {
+  const { username, newUsername, newPassword } = req.body;
+  if (!username) return res.status(400).json({ error: '请指定用户名' });
+
+  const users = getUsers();
+  if (!users[username]) return res.status(404).json({ error: '用户不存在' });
+
+  // Cannot modify admin username
+  if (username === 'admin' && newUsername && newUsername !== 'admin') {
+    return res.status(400).json({ error: '不能修改管理员用户名' });
+  }
+
+  // Update username if provided and different
+  if (newUsername && newUsername !== username) {
+    if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+      return res.status(400).json({ error: '用户名只能包含字母、数字和下划线' });
+    }
+    if (users[newUsername]) {
+      return res.status(409).json({ error: '用户名已存在' });
+    }
+    // Rename user key
+    users[newUsername] = users[username];
+    delete users[username];
+    // Update session if the admin is editing themselves
+    if (req.session.user.username === username) {
+      req.session.user.username = newUsername;
+    }
+  }
+
+  // Update password if provided
+  if (newPassword) {
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: '密码不能少于8位' });
+    }
+    const targetKey = (newUsername && newUsername !== username) ? newUsername : username;
+    users[targetKey].salt = genSalt();
+    users[targetKey].password = hashPassword(newPassword, users[targetKey].salt);
+  }
+
+  saveUsers(users);
+  res.json({ success: true });
+});
 router.post('/users/delete', requireAdmin, (req, res) => {
   const { username } = req.body;
   if (!username) {
