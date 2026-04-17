@@ -110,10 +110,11 @@ app.use('/api/paths', require('./routes/paths'));
 app.use('/api/growth-records', require('./routes/growth-records'));
 
 // 里程碑API
-const MILESTONES_FILE = path.join(__dirname, '..', 'data', 'gff_milestones.json');
 app.get('/api/milestones', (req, res) => {
   if (!req.userId) return res.status(401).json({ error: '请先登录' });
-  const userMilestonesFile = MILESTONES_FILE;
+  // 按用户分目录存储里程碑
+  const userDir = path.join(__dirname, '..', 'data', 'milestones', req.userId);
+  const userMilestonesFile = path.join(userDir, 'milestones.json');
   if (fs.existsSync(userMilestonesFile)) {
     const data = fs.readFileSync(userMilestonesFile, 'utf-8');
     res.json(JSON.parse(data));
