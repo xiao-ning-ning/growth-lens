@@ -168,19 +168,11 @@ router.delete('/:recordId', (req, res) => {
 
   // 同步更新 cognition-map
   if (deletedPossessedDims.length > 0) {
-    const mapPath = path.join(__dirname, '..', '..', 'data', 'admin', 'cognition-map.json');
-    const userMapPath = path.join(__dirname, '..', '..', 'data', userId, 'cognition-map.json');
-    let finalMapPath = null;
+    const mapPath = path.join(__dirname, '..', '..', 'data', userId, 'cognition-map.json');
     
-    if (fs.existsSync(userMapPath)) {
-      finalMapPath = userMapPath;
-    } else if (userId === 'admin' && fs.existsSync(mapPath)) {
-      finalMapPath = mapPath;
-    }
-    
-    if (finalMapPath) {
+    if (fs.existsSync(mapPath)) {
       try {
-        const mapData = JSON.parse(fs.readFileSync(finalMapPath, 'utf-8'));
+        const mapData = JSON.parse(fs.readFileSync(mapPath, 'utf-8'));
         
         // 检查每个被删除的 possessed 维度是否还被其他记录支持
         deletedPossessedDims.forEach(dimId => {
@@ -193,18 +185,17 @@ router.delete('/:recordId', (req, res) => {
             const dim = mapData.dimensions?.find(d => d.id === dimId);
             if (dim && dim.status === 'possessed') {
               dim.status = 'no_data';
-              // 移除证据
               dim.evidence = [];
             }
           }
         });
         
-        fs.writeFileSync(finalMapPath, JSON.stringify(mapData, null, 2), 'utf-8');
+        fs.writeFileSync(mapPath, JSON.stringify(mapData, null, 2), 'utf-8');
       } catch (e) {
         console.error('更新cognition-map失败:', e);
       }
     } else {
-      console.log('[delete-record] 未找到map文件，userMapPath:', userMapPath, 'mapPath:', mapPath);
+      console.error('[delete-record] 未找到map文件:', mapPath);
     }
   }
   
