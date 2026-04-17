@@ -7,7 +7,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 // 保存成长记录快照
-function saveGrowthRecord(req, map, speaker, source) {
+function saveGrowthRecord(req, map, source) {
   const userId = req.userId || req.session?.user?.username;
   if (!userId) return;
   const DATA_DIR = path.join(__dirname, '../../data/growth-records');
@@ -17,6 +17,10 @@ function saveGrowthRecord(req, map, speaker, source) {
   if (fs.existsSync(filePath)) {
     try { data = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
   }
+
+  // 获取用户显示名（基本信息中设置的姓名，而非录音说话人）
+  const profile = map.profile || {};
+  const displayName = profile.name || userId;
 
   // 构建维度快照
   const dimensions = {};
@@ -28,7 +32,7 @@ function saveGrowthRecord(req, map, speaker, source) {
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     source: source || '未知来源',
-    speaker: speaker || '未知',
+    speaker: displayName,
     dimensions,
     summary: map.summary || '',
     keyFindings: [],
@@ -191,7 +195,7 @@ ${existingDimsSummary.length > 0 ? existingDimsSummary.map(d =>
     await saveMap(req.userId, map);
 
     // 自动保存成长记录快照
-    saveGrowthRecord(req, map, speakerName, sourceName);
+    saveGrowthRecord(req, map, sourceName);
 
     res.json({
       success: true,

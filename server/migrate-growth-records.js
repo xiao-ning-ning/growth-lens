@@ -49,34 +49,32 @@ function parseSourceDate(source) {
 function buildRecordsFromMap(map, username) {
   if (!map || !map.dimensions) return [];
 
+  // 获取用户显示名（基本信息中设置的姓名）
+  const displayName = map.profile?.name || username;
+
   // 收集所有唯一的 source → dimensions 映射
   const sourceMap = {}; // sourceName → { date, dimensions: { dimId: status }, speakers: Set }
 
   for (const dim of map.dimensions) {
     const status = dim.status || 'no_data';
-    const catName = getCategoryName(map, dim);
 
     for (const ev of (dim.evidence || [])) {
       const source = ev.source || '未知来源';
-      const speaker = ev.speaker || '未知';
       const date = parseSourceDate(source) || map.lastUpdated || new Date().toISOString().split('T')[0];
 
       if (!sourceMap[source]) {
-        sourceMap[source] = { date, source, speakers: new Set(), dimensions: {} };
+        sourceMap[source] = { date, source, dimensions: {} };
       }
       sourceMap[source].dimensions[dim.id] = status;
-      sourceMap[source].speakers.add(speaker);
     }
 
     // 如果没有 evidence，至少记录这个维度的状态
     if (!dim.evidence || dim.evidence.length === 0) {
-      // 找到一个默认 source
       const defaultSource = '初始状态（' + (map.lastUpdated || '未知') + '）';
       if (!sourceMap[defaultSource]) {
         sourceMap[defaultSource] = {
           date: map.lastUpdated || new Date().toISOString().split('T')[0],
           source: defaultSource,
-          speakers: new Set([map.owner || username]),
           dimensions: {}
         };
       }
@@ -89,7 +87,7 @@ function buildRecordsFromMap(map, username) {
     id: crypto.randomUUID(),
     timestamp: entry.date + 'T00:00:00.000Z',
     source: entry.source,
-    speaker: Array.from(entry.speakers).join(', ') || username,
+    speaker: displayName,
     dimensions: entry.dimensions,
     summary: buildSummary(map, entry.dimensions),
     keyFindings: buildKeyFindings(map, entry.dimensions),
@@ -135,6 +133,7 @@ function buildKeyFindings(map, dimensions) {
 }
 
 function main() {
+  const force = process.argv.includes('--force');
   console.log('\n========== 成长轨迹迁移脚本 ==========\n');
 
   // 获取所有用户目录
@@ -161,8 +160,8 @@ function main() {
     // 检查是否已有成长记录
     const recordFile = path.join(RECORDS_DIR, `${user}.json`);
     const existingRecords = fs.existsSync(recordFile) ? JSON.parse(fs.readFileSync(recordFile, 'utf-8')).records || [] : [];
-    if (existingRecords.length > 0) {
-      console.log(`[跳过] ${user}：已有 ${existingRecords.length} 条成长记录`);
+    if (existingRecords.length > 0 && !force) {
+      console.log(`[跳过] ${user}：已有 ${existingRecords.length} 条成长记录（加 --force 重新生成）`);
       continue;
     }
 
@@ -175,7 +174,7 @@ function main() {
     saveGrowthRecord(user, records);
     console.log(`[OK] ${user}：生成 ${records.length} 条成长记录`);
     for (const r of records) {
-      console.log(`     - ${r.source}`);
+      console.log(`     - ${r.source}（${r.speaker}）`);
     }
   }
 
