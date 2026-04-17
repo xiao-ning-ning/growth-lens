@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul 2>nul
 setlocal EnableDelayedExpansion
 title Growth Force Field
 cd /d "%~dp0"
