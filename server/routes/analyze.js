@@ -235,11 +235,13 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
   if (result.newDimensions) {
     for (const newDim of result.newDimensions) {
       // 雷同检测：检查是否与已有维度雷同（同名 或 description 高度相似）
-      const similarDim = map.dimensions.find(d => 
-        d.name === newDim.name || 
-        (d.description && newDim.description && 
-          (d.description.includes(newDim.description) || newDim.description.includes(d.description))
-      );
+      const similarDim = map.dimensions.find(d => {
+        if (d.name === newDim.name) return true;
+        if (d.description && newDim.description) {
+          return d.description.includes(newDim.description) || newDim.description.includes(d.description);
+        }
+        return false;
+      });
       
       if (similarDim) {
         // 雷同：追加证据到已有维度
