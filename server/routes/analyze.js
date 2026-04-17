@@ -234,12 +234,17 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
   // 处理新维度
   if (result.newDimensions) {
     for (const newDim of result.newDimensions) {
-      // 检查是否真的不存在同名维度
-      const existing = map.dimensions.find(d => d.name === newDim.name);
-      if (existing) {
-        // 追加证据到已有维度
+      // 雷同检测：检查是否与已有维度雷同（同名 或 description 高度相似）
+      const similarDim = map.dimensions.find(d => 
+        d.name === newDim.name || 
+        (d.description && newDim.description && 
+          (d.description.includes(newDim.description) || newDim.description.includes(d.description))
+      );
+      
+      if (similarDim) {
+        // 雷同：追加证据到已有维度
         const ev = newDim.evidence;
-        existing.evidence.push({
+        similarDim.evidence.push({
           source: ev.source || sourceLabel,
           speaker: ev.speaker || speakerName,
           quote: ev.quote,
@@ -248,9 +253,9 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
           date: sourceDate,
         });
         if (newDim.confidence && newDim.confidence !== '不变') {
-          existing.confidence = newDim.confidence;
+          similarDim.confidence = newDim.confidence;
         }
-        updates.updatedDims.push({ id: existing.id, name: existing.name, action: '追加证据(匹配到同名)' });
+        updates.updatedDims.push({ id: similarDim.id, name: similarDim.name, action: '雷同合并(追加证据)' });
         continue;
       }
 
@@ -279,14 +284,14 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
         category: category ? category.id : '',
         speakerId: speaker.id,
         description: newDim.description,
-    evidence: [{
-      source: newDim.evidence.source || sourceLabel,
-      speaker: newDim.evidence.speaker || speakerName,
-      quote: newDim.evidence.quote,
-      corrected: false,
-      interpretation: newDim.evidence.interpretation,
-      date: sourceDate,
-    }],
+        evidence: [{
+          source: newDim.evidence.source || sourceLabel,
+          speaker: newDim.evidence.speaker || speakerName,
+          quote: newDim.evidence.quote,
+          corrected: false,
+          interpretation: newDim.evidence.interpretation,
+          date: sourceDate,
+        }],
         relatedTo: relatedIds,
         confidence: newDim.confidence || '弱',
       };
