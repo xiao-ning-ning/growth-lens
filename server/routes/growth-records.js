@@ -82,14 +82,14 @@ router.get('/all', (req, res) => {
   const users = files.map(file => {
     const userId = file.replace('.json', '');
     const data = readUserRecords(userId);
-    // Load user info
-    const authPath = path.join(__dirname, '../../data/auth.json');
+    // Load user info from users.json
+    const usersPath = path.join(__dirname, '../../data/users.json');
     let username = userId;
     let role = 'user';
-    if (fs.existsSync(authPath)) {
+    if (fs.existsSync(usersPath)) {
       try {
-        const auth = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
-        const userEntry = Object.entries(auth).find(([k]) => k === userId);
+        const usersData = JSON.parse(fs.readFileSync(usersPath, 'utf-8'));
+        const userEntry = Object.entries(usersData).find(([k]) => k === userId);
         if (userEntry) { username = userEntry[0]; role = userEntry[1].role || 'user'; }
       } catch {}
     }
