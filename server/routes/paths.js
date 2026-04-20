@@ -80,7 +80,7 @@ router.post('/', async (req, res) => {
 ${developingDims.map(d => `- ${d.name}：${d.description}
   关联维度: ${d.relatedTo.map(id => {
     const dim = map.dimensions.find(dd => dd.id === id);
-    return dim ? dim.name : id;
+    return dim ? dim.name : (id.startsWith('blind_') ? '盲区维度' : id);
   }).join(', ') || '无'}`).join('\n\n')}
 
 ## 盲区（${blindSpots.length} 个）
@@ -88,10 +88,10 @@ ${developingDims.map(d => `- ${d.name}：${d.description}
 ${blindSpots.map(b => `- ${b.name}：${b.description}
   关联维度: ${(b.relatedDimensions || []).map(id => {
     const dim = map.dimensions.find(dd => dd.id === id);
-    return dim ? dim.name : id;
+    return dim ? dim.name : (id.startsWith('blind_') ? '盲区维度' : id);
   }).join(', ') || '无'}`).join('\n\n')}
 
-## 可用杠杆 - 已具备维度（${levers.length} 个）
+## 可用杠杆维度（${levers.length} 个，用于 leveragedFrom 字段）
 
 ${levers.map(d => `- ${d.name}：${d.description}`).join('\n')}
 
