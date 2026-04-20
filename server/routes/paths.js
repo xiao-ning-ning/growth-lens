@@ -37,6 +37,11 @@ router.post('/', async (req, res) => {
       id: d.id, name: d.name,
       description: d.description,
     }));
+    // 构建名称→ID 映射（LLM 输出名称，后端解析为 ID）
+    const nameToId = {};
+    for (const d of [...possessedDims, ...developingDims]) {
+      nameToId[d.name] = d.id;
+    }
 
     const systemPrompt = `你是能力发展教练。为待发展的能力和感知盲区设计可落地的修炼路径。
 
@@ -54,16 +59,15 @@ router.post('/', async (req, res) => {
 {
   "paths": [
     {
-      "targetId": "dim_xxx 或 blind_xxx",
-      "targetName": "待发展维度/盲区名称",
+      "targetId": "维度名称（直接填名称，不是ID",
       "targetType": "developing|blindSpot",
-      "leveragedFrom": ["dim_yyy"],
+      "leveragedFrom": ["维度名称（不要填ID，直接填名称"],
       "currentGap": "当前缺口的精确描述",
       "steps": [
         {
           "action": "具体行动",
           "detail": "行动的详细说明和操作方式",
-          "leverage": "dim_yyy 如何利用已有能力来执行这个行动"
+          "leverage": "直接写已有维度名称（如"流程前置定义"）+ 如何利用它来执行这个行动，不要出现任何ID"
         }
       ],
       "expectedOutcome": "修炼后的预期变化"
@@ -73,49 +77,61 @@ router.post('/', async (req, res) => {
 
     const userPrompt = `## 待发展维度（${developingDims.length} 个）
 
-${developingDims.map(d => `- [${d.id}] ${d.name}: ${d.description}
-  关联维度: ${d.relatedTo.join(', ') || '无'}`).join('\n\n')}
+${developingDims.map(d => `- ${d.name}：${d.description}
+  关联维度: ${d.relatedTo.map(id => {
+    const dim = map.dimensions.find(dd => dd.id === id);
+    return dim ? dim.name : id;
+  }).join(', ') || '无'}`).join('\n\n')}
 
 ## 盲区（${blindSpots.length} 个）
 
-${blindSpots.map(b => `- [${b.id}] ${b.name}: ${b.description}
-  关联维度: ${b.relatedDimensions.join(', ') || '无'}
-  证据: ${b.evidence.map(e => e.gap).join('; ')}`).join('\n\n')}
+${blindSpots.map(b => `- ${b.name}：${b.description}
+  关联维度: ${(b.relatedDimensions || []).map(id => {
+    const dim = map.dimensions.find(dd => dd.id === id);
+    return dim ? dim.name : id;
+  }).join(', ') || '无'}`).join('\n\n')}
 
 ## 可用杠杆 - 已具备维度（${levers.length} 个）
 
-${levers.map(d => `- [${d.id}] ${d.name}: ${d.description}`).join('\n')}
+${levers.map(d => `- ${d.name}：${d.description}`).join('\n')}
 
 请为每个待发展维度和盲区设计修炼路径。`;
 
     const result = await callLLM(systemPrompt, userPrompt);
 
-    // 更新修炼路径
-    const validDimIds = new Set(map.dimensions.map(d => d.id));
-    const validBlindIds = new Set(map.blindSpots.map(b => b.id));
+    // 更新修炼路径（leveragedFrom 现在是维度名称，需要映射为 ID）
     const updates = [];
     const skipped = [];
     for (const path of (result.paths || [])) {
-      // 校验 targetId 存在
-      if (path.targetType === 'developing' && !validDimIds.has(path.targetId)) {
-        skipped.push({ name: path.targetName, reason: '目标维度不存在' });
+      // 把 targetId（名称）映射回 ID
+      const targetIdByName = nameToId[path.targetId];
+      const targetDim = targetIdByName
+        ? map.dimensions.find(d => d.id === targetIdByName)
+        : null;
+      const targetBlind = map.blindSpots.find(b => b.name === path.targetId);
+
+      if (path.targetType === 'developing' && !targetDim) {
+        skipped.push({ name: path.targetId, reason: '目标维度不存在' });
         continue;
       }
-      if (path.targetType === 'blindSpot' && !validBlindIds.has(path.targetId)) {
-        skipped.push({ name: path.targetName, reason: '目标盲区不存在' });
-        continue;
-      }
-      // 校验 leveragedFrom 中的 ID
-      const validLevers = (path.leveragedFrom || []).filter(id => validDimIds.has(id));
-      if (validLevers.length === 0) {
-        skipped.push({ name: path.targetName, reason: '无可用杠杆维度' });
+      if (path.targetType === 'blindSpot' && !targetBlind) {
+        skipped.push({ name: path.targetId, reason: '目标盲区不存在' });
         continue;
       }
 
-      const existing = map.developmentPaths.find(p => p.targetDimension === path.targetId);
+      // leveragedFrom 名称→ID
+      const validLevers = (path.leveragedFrom || []).map(name => nameToId[name]).filter(Boolean);
+      if (validLevers.length === 0) {
+        skipped.push({ name: path.targetId, reason: '无可用杠杆维度' });
+        continue;
+      }
+
+      const realTargetId = targetDim ? targetDim.id : targetBlind.id;
+      const displayName = targetDim ? targetDim.name : targetBlind.name;
+      const existing = map.developmentPaths.find(p => p.targetDimension === realTargetId);
       const pathData = {
-        targetDimension: path.targetId,
-        targetName: path.targetName,
+        targetDimension: realTargetId,
+        targetName: displayName,
         leveragedFrom: validLevers,
         currentGap: path.currentGap,
         steps: path.steps,
@@ -128,7 +144,7 @@ ${levers.map(d => `- [${d.id}] ${d.name}: ${d.description}`).join('\n')}
       } else {
         const id = nextId('devpath');
         map.developmentPaths.push({ id, ...pathData });
-        updates.push({ id, name: path.targetName, action: '新增' });
+        updates.push({ id, name: displayName, action: '新增' });
       }
     }
     if (skipped.length > 0) {
