@@ -99,6 +99,28 @@ body{font-family:'Noto Sans SC',sans-serif;background:#06070b;color:#f0f0f5;over
 .proof-num{font-size:40px;font-weight:900;color:#2dd4bf}
 .proof-lbl{font-size:13px;color:#7a7a90;margin-top:8px}
 
+/* why now cards */
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:32px}
+.why-card{background:#11121c;border:1px solid #1f2140;border-radius:14px;padding:24px;position:relative;overflow:hidden}
+.why-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.why-card-orange::before{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
+.why-card-purple::before{background:linear-gradient(90deg,#6c5ce7,#a29bfe)}
+.why-card-red::before{background:linear-gradient(90deg,#f87171,#ef4444)}
+.why-card-cyan::before{background:linear-gradient(90deg,#2dd4bf,#34d399)}
+.why-icon{font-size:28px;margin-bottom:10px}
+.why-card h3{font-size:14px;font-weight:700;margin-bottom:8px;color:#f0f0f5}
+.why-card p{font-size:12px;color:#7a7a90;line-height:1.7}
+
+/* competitive comparison table */
+.comp-table{width:100%;border-collapse:collapse;margin-top:24px;font-size:13px}
+.comp-table th{text-align:left;padding:12px 16px;background:#11121c;border-bottom:1px solid #1f2140;color:#7a7a90;font-weight:600;font-size:12px}
+.comp-table td{padding:12px 16px;border-bottom:1px solid #1f2140;vertical-align:top;line-height:1.6}
+.comp-table tr:last-child td{border-bottom:none}
+.comp-table .check{color:#2dd4bf;font-size:16px}
+.comp-table .cross{color:#f87171;font-size:14px}
+.comp-table .partial{color:#fbbf24;font-size:14px}
+.comp-table .dim-name{font-weight:700;color:#f0f0f5;white-space:nowrap}
+
 /* steps vertical */
 .steps-v{padding-left:72px;margin-top:36px;position:relative}
 .step-v{position:relative;padding-left:24px;padding-bottom:32px}
@@ -230,6 +252,39 @@ body{font-family:'Noto Sans SC',sans-serif;background:#06070b;color:#f0f0f5;over
         <div class="pain-ans">花了大把钱送管理层上课，但培训内容有没有内化？学了和没学有什么区别？</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- S_why: 为什么是现在 -->
+<div class="slide" id="s_why">
+  <div class="slide-bg" style="background:radial-gradient(ellipse 60% 50% at 50% 40%,rgba(251,191,36,0.05),transparent)"></div>
+  <div class="slide-content">
+    <div class="sec-label">为什么是现在</div>
+    <h2 class="sec-title">管理者靠观察做判断的时代，正在失效</h2>
+    <p class="sec-sub">远程办公常态化、扁平化管理流行，管理者亲眼看到下属做事的机会越来越少。判断一个人"软性能力"的方式，已经过时了。</p>
+    <div class="why-grid">
+      <div class="why-card why-card-orange">
+        <div class="why-icon">&#128188;</div>
+        <h3>观察机会锐减</h3>
+        <p>混合办公常态下，管理者与下属的实际互动频率大幅下降，靠"我看你做事"来判断能力的基础已经不存在了。</p>
+      </div>
+      <div class="why-card why-card-purple">
+        <div class="why-icon">&#128640;</div>
+        <h3>评估标准主观化</h3>
+        <p>没有客观行为记录，绩效面谈时管理者和员工对"能力好不好"各执一词，晋升决策靠印象、靠关系、靠上级推荐信。</p>
+      </div>
+      <div class="why-card why-card-red">
+        <div class="why-icon">&#128679;</div>
+        <h3>培训投入无感知</h3>
+        <p>花了钱送管理层上课，但培训后能力有没有提升？能不能落地到日常行为？没有证据，只有感受。</p>
+      </div>
+      <div class="why-card why-card-cyan">
+        <div class="why-icon">&#127793;</div>
+        <h3>AI 成熟度已到拐点</h3>
+        <p>LLM 可以从一段对话中提取行为模式、量化能力倾向——这件事，今天已经可以做到。</p>
+      </div>
+    </div>
+    <p style="margin-top:24px;font-size:14px;color:#d8d4ff;text-align:center;font-weight:600">不是要不要用 AI 做管理者评估，是谁先用谁知道</p>
   </div>
 </div>
 
@@ -566,6 +621,65 @@ body{font-family:'Noto Sans SC',sans-serif;background:#06070b;color:#f0f0f5;over
   </div>
 </div>
 
+<!-- S_comp: 竞品对比 -->
+<div class="slide" id="s_comp">
+  <div class="slide-bg" style="background:radial-gradient(ellipse 60% 50% at 50% 40%,rgba(124,108,240,0.05),transparent)"></div>
+  <div class="slide-content">
+    <div class="sec-label">竞品对比</div>
+    <h2 class="sec-title">不同评估方式，颗粒度天壤之别</h2>
+    <p class="sec-sub">360 评估看评分不看行为，绩效系统看结果不看过程。成长力场填补了"用行为说话"的空白。</p>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th style="width:140px"></th>
+          <th>成长力场</th>
+          <th>360 评估</th>
+          <th>绩效系统</th>
+          <th>直觉判断</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="dim-name">行为证据</td>
+          <td class="check" style="color:#2dd4bf">&#10003; 原文引用可追溯</td>
+          <td style="color:#f87171">&#10007; 主观打分，无行为</td>
+          <td style="color:#f87171">&#10007; 只有 KPI 结果</td>
+          <td style="color:#f87171">&#10007; 纯印象，无记录</td>
+        </tr>
+        <tr>
+          <td class="dim-name">AI 发现盲区</td>
+          <td style="color:#2dd4bf">&#10003; 行为反推感知盲点</td>
+          <td style="color:#f87171">&#10007; 只看自评与他评</td>
+          <td style="color:#f87171">&#10007; 无此能力</td>
+          <td style="color:#f87171">&#10007; 无此能力</td>
+        </tr>
+        <tr>
+          <td class="dim-name">成长轨迹追踪</td>
+          <td style="color:#2dd4bf">&#10003; 时间轴量化演进</td>
+          <td style="color:#fbbf24">&#8768; 半年/年一次</td>
+          <td style="color:#fbbf24">&#8768; 季度回顾</td>
+          <td style="color:#f87171">&#10007; 无记录</td>
+        </tr>
+        <tr>
+          <td class="dim-name">修炼路径生成</td>
+          <td style="color:#2dd4bf">&#10003; AI 杠杆路径设计</td>
+          <td style="color:#f87171">&#10007; 无</td>
+          <td style="color:#fbbf24">&#8768; 目标拆解</td>
+          <td style="color:#f87171">&#10007; 无</td>
+        </tr>
+        <tr>
+          <td class="dim-name">数据自主</td>
+          <td style="color:#2dd4bf">&#10003; 本地 JSON 存储</td>
+          <td style="color:#f87171">&#10007; SaaS 云端</td>
+          <td style="color:#f87171">&#10007; SaaS 云端</td>
+          <td style="color:#2dd4bf">&#10003; 无数据风险</td>
+        </tr>
+      </tbody>
+    </table>
+    <p style="margin-top:20px;font-size:13px;color:#7a7a90;text-align:center">填补"行为驱动评估"的空白——不是替代 HR 系统，而是互补</p>
+  </div>
+</div>
+
 <!-- S11: 部署 -->
 <div class="slide" id="s5">
   <div class="slide-bg"></div>
@@ -615,7 +729,7 @@ body{font-family:'Noto Sans SC',sans-serif;background:#06070b;color:#f0f0f5;over
 
 <div class="nav">
   <button class="nav-btn" id="prevBtn" onclick="prevSlide()">&#8592;</button>
-  <span class="page-num" id="pageNum">1 / 12</span>
+  <span class="page-num" id="pageNum">1 / 14</span>
   <button class="nav-btn" id="nextBtn" onclick="nextSlide()">&#8594;</button>
 </div>
 
