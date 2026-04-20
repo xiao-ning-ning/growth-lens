@@ -6,6 +6,18 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const SCHEMA_FILE = path.join(__dirname, '../../data/schema.json');
+
+// 加载自定义 schema（如果存在）
+function loadSchema() {
+  if (!fs.existsSync(SCHEMA_FILE)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(SCHEMA_FILE, 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 // 保存成长记录快照
 function saveGrowthRecord(req, map, source) {
   const userId = req.userId || req.session?.user?.username;
@@ -95,11 +107,30 @@ router.post('/', upload.single('file'), async (req, res) => {
     }
 
     const map = loadMap(req.userId);
+    const schema = loadSchema();
     const existingDimsSummary = map.dimensions.map(d => ({
       id: d.id, name: d.name, status: d.status, category: d.category,
       evidenceCount: d.evidence.length, description: d.description,
     }));
 
+    // ========== 分支：自定义 schema 模式 ==========
+    if (schema && schema.categories && schema.categories.length > 0) {
+      const schemaPrompt = buildSchemaPrompt(schema, transcript, speakerName, sourceName, date, existingDimsSummary, map);
+      const result = await callLLM(schemaPrompt.system, schemaPrompt.user);
+      const parsed = JSON.parse(result);
+      const updates = processSchemaResult(map, parsed, speakerName, sourceName, date);
+      await saveMap(req.userId, map);
+      saveGrowthRecord(req, map, sourceName);
+      return res.json({
+        success: true,
+        map,
+        updates,
+        summary: parsed.summary || '',
+        mode: 'schema',
+      });
+    }
+
+    // ========== 分支：AI 自由生成模式 ==========
     const systemPrompt = `你是"成长力场"的分析引擎，专门从录音转写文本中提取人的行为特征和能力维度。
 
 核心信念：人对自己能力的认知往往存在盲区——有些能力每天都在用，但从未命名和显性化。
@@ -213,6 +244,164 @@ ${existingDimsSummary.length > 0 ? existingDimsSummary.map(d =>
     res.status(500).json({ error: error.message });
   }
 });
+
+/**
+ * 构建 schema 模式的 prompt
+ */
+function buildSchemaPrompt(schema, transcript, speakerName, sourceName, date, existingDimsSummary, map) {
+  // 把 schema 的所有维度展开成 AI 可理解的列表
+  const dimList = [];
+  for (const cat of schema.categories) {
+    for (const dim of (cat.dimensions || [])) {
+      dimList.push({
+        catName: cat.name,
+        catIcon: cat.icon || '',
+        catDesc: cat.description || '',
+        dimId: dim.id,
+        dimName: dim.name,
+        dimDesc: dim.description || '',
+        indicatorPossessed: dim.indicators?.possessed || '',
+        indicatorDeveloping: dim.indicators?.developing || '',
+      });
+    }
+  }
+
+  const dimDescriptions = dimList.map(d =>
+    `【${d.catName} / ${d.dimName}】
+定义：${d.dimDesc}
+判断标准-已具备：${d.indicatorPossessed}
+判断标准-待发展：${d.indicatorDeveloping}`
+  ).join('\n\n');
+
+  const systemPrompt = `你是"成长力场"的能力分析引擎，严格按照给定的维度定义从文本中提取行为证据。
+
+## 核心原则
+
+1. **严格匹配，不自由发挥**：只分析以下预定义维度，不得自行创造新维度
+2. **无证据不输出**：某个维度在文本中没有对应行为证据时，直接跳过，不要虚构
+3. **原文引用必须有**：每条证据必须附原文引用
+4. **待发展要有行为依据**：待发展能力必须基于文本中的行为观察，不能主观臆造
+
+## 预定义能力维度
+
+${dimDescriptions}
+
+## 输出格式
+
+只输出 JSON，不要其他内容：
+{
+  "matchedDimensions": [
+    {
+      "dimensionId": "维度ID",
+      "dimensionName": "维度名称",
+      "status": "possessed|developing",
+      "categoryName": "分类名称",
+      "categoryIcon": "图标",
+      "evidence": {
+        "quote": "原文引用（完整原句）",
+        "interpretation": "AI解读：这段话为什么体现该维度"
+      },
+      "confidence": "强|中|弱"
+    }
+  ],
+  "summary": "本次分析的简短摘要"
+}`;
+
+  const userPrompt = `## 待分析的录音转写文本
+
+来源: ${sourceName || '未命名录音'}
+日期: ${date || new Date().toISOString().split('T')[0]}
+目标说话人: ${speakerName}
+
+### 文本内容
+${transcript}
+
+## 已有维度（共 ${map.dimensions.length} 个，供去重参考）
+${existingDimsSummary.length > 0 ? existingDimsSummary.map(d =>
+  `- [${d.id}] ${d.name} (${d.status}, ${d.evidenceCount}条证据): ${d.description}`
+).join('\n') : '（暂无已有维度）'}
+
+请严格按照预定义维度逐一判断，输出匹配的维度及其证据。`;
+
+  return { system: systemPrompt, user: userPrompt };
+}
+
+/**
+ * 处理 schema 模式分析结果
+ */
+function processSchemaResult(map, result, speakerName, sourceName, date) {
+  const updates = { newDims: [], updatedDims: [], mergeSuggestions: [], radarAxesChanges: [] };
+  const sourceDate = date || new Date().toISOString().split('T')[0];
+  const sourceLabel = sourceName || '未命名录音';
+
+  // 确保 speaker 存在
+  let speaker = map.speakers.find(s => s.name === speakerName);
+  if (!speaker) {
+    speaker = { id: nextId('speaker'), name: speakerName };
+    map.speakers.push(speaker);
+  }
+
+  const matchedDims = result.matchedDimensions || [];
+
+  for (const matched of matchedDims) {
+    // 在已有维度中查找雷同（同名）
+    const existing = map.dimensions.find(d => d.name === matched.dimensionName || d.name === matched.dimensionName);
+
+    if (existing) {
+      // 追加证据
+      existing.evidence.push({
+        source: sourceLabel,
+        speaker: speakerName,
+        quote: matched.evidence?.quote || '',
+        corrected: false,
+        interpretation: matched.evidence?.interpretation || '',
+        date: sourceDate,
+      });
+      if (matched.confidence && matched.confidence !== '不变') {
+        existing.confidence = matched.confidence;
+      }
+      updates.updatedDims.push({ id: existing.id, name: existing.name, action: '追加证据' });
+    } else {
+      // 创建新维度
+      const category = map.categories.find(c => c.name === matched.categoryName);
+      const dimId = nextId('dim');
+      const dim = {
+        id: dimId,
+        name: matched.dimensionName,
+        status: matched.status || 'possessed',
+        category: category ? category.id : '',
+        speakerId: speaker.id,
+        description: '',
+        evidence: [{
+          source: sourceLabel,
+          speaker: speakerName,
+          quote: matched.evidence?.quote || '',
+          corrected: false,
+          interpretation: matched.evidence?.interpretation || '',
+          date: sourceDate,
+        }],
+        relatedTo: [],
+        confidence: matched.confidence || '弱',
+      };
+      map.dimensions.push(dim);
+      updates.newDims.push({ id: dimId, name: dim.name, status: dim.status });
+    }
+  }
+
+  // 维护雷达轴
+  maintainRadarAxes(map);
+
+  // 记录 sourceLog
+  map.sourceLog.push({
+    date: sourceDate,
+    source: sourceLabel,
+    speaker: speakerName,
+    dimensionsAffected: [...updates.newDims.map(d => d.id), ...updates.updatedDims.map(d => d.id)],
+    summary: result.summary || `本次分析匹配 ${matchedDims.length} 个维度`,
+  });
+
+  return updates;
+}
 
 /**
  * 处理分析结果，将新维度和更新写入地图
