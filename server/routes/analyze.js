@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { callLLM, loadMap, saveMap, nextId, syncBlindSpotsToRadarAxes } = require('../store');
+const { callLLM, callLLMText, loadMap, saveMap, nextId, syncBlindSpotsToRadarAxes } = require('../store');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -105,6 +105,24 @@ router.post('/', upload.single('file'), async (req, res) => {
     if (!transcript || !speakerName) {
       return res.status(400).json({ error: '缺少必要参数: 文件或文本, speakerName' });
     }
+
+    // ========== 预处理：优化录音文本 ==========
+    const preprocessPrompt = `你是录音文本优化助手。以下是一段录音转写文本，可能包含ASR错误、语气词、重复、断句问题。
+
+你的任务是对这段文本进行优化：
+1. 修正明显的ASR转写错误（如同音错字、常见误识别）
+2. 删除重复的词句（说话人重复说同一句话）
+3. 删减语气词和口头禅（"那个""嗯嗯""就是说""呃"等）
+4. 修正标点和断句（把长句适当断开，把被截断的句子补全或标注）
+5. 保留说话人的原始意思和表达风格，不要改变语义
+
+如果文本本身已经比较通顺，也要做上述检查和优化。**只输出优化后的文本，不要加任何解释、说明或标注。**
+
+---待优化文本---
+${transcript}`;
+
+    transcript = await callLLMText(preprocessPrompt, '');
+    // ========== 预处理结束 ==========
 
     const map = loadMap(req.userId);
     const schema = loadSchema();
