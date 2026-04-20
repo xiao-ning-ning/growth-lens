@@ -387,36 +387,24 @@ function processSchemaResult(map, result, speakerName, sourceName, date) {
         polarity: polarity,
       });
 
-      // 重新计算星级
-      existing.starCount = existing.evidence.reduce((sum, ev) => sum + (ev.polarity || 1), 0);
+      // 重新计算星级和状态
+      recalcDimension(existing);
 
-      // 更新置信度（基于证据数量）
-      const evidenceCount = existing.evidence.length;
-      existing.confidence = evidenceCount >= 3 ? '强' : evidenceCount >= 2 ? '中' : '弱';
-
-      // 重新计算状态
-      if (existing.starCount > 0) {
-        existing.status = 'possessed';
-      } else if (existing.starCount < 0) {
-        existing.status = 'developing';
-      } else {
-        // 星级归零，移除该维度
+      // 星级归零则移除该维度
+      if (existing.starCount === 0) {
         map.dimensions = map.dimensions.filter(d => d.id !== existing.id);
         updates.removedDims.push({ id: existing.id, name: existing.name });
         updates.updatedDims.push({ id: existing.id, name: existing.name, action: '星级归零，移除' });
-        continue;
+      } else {
+        updates.updatedDims.push({ id: existing.id, name: existing.name, action: '追加证据，星级' + existing.starCount });
       }
-
-      updates.updatedDims.push({ id: existing.id, name: existing.name, action: '追加证据，星级' + existing.starCount });
     } else {
       // 创建新维度
       const dimId = nextId('dim');
-      const status = polarity > 0 ? 'possessed' : 'developing';
-
       const dim = {
         id: dimId,
         name: matched.dimensionName,
-        status: status,
+        status: polarity > 0 ? 'possessed' : 'developing',
         category: '',
         speakerId: speaker.id,
         description: '',
@@ -433,8 +421,14 @@ function processSchemaResult(map, result, speakerName, sourceName, date) {
         confidence: matched.confidence || '弱',
         starCount: polarity,
       };
-      map.dimensions.push(dim);
-      updates.newDims.push({ id: dimId, name: dim.name, status: dim.status, starCount: dim.starCount });
+
+      // 星级为零则不创建
+      if (dim.starCount === 0) {
+        updates.removedDims.push({ id: dimId, name: matched.dimensionName, action: '星级归零，不创建' });
+      } else {
+        map.dimensions.push(dim);
+        updates.newDims.push({ id: dimId, name: dim.name, status: dim.status, starCount: dim.starCount });
+      }
     }
   }
 
@@ -565,7 +559,7 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
         starCount: polarity,
       };
 
-      // 星级为零则不创建（单条证据的正负抵消）
+      // 星级为零则不创建
       if (dim.starCount === 0) {
         updates.removedDims.push({ id: dimId, name: newDim.name, action: '星级归零，不创建' });
         continue;

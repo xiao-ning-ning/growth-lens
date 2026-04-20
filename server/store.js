@@ -115,18 +115,21 @@ function loadMap(username) {
     // Sync category from categories[].dimIds → dimensions[].category
     syncCategoryToDimensions(parsed);
 
-    // 数据迁移：v3 → v4，补 starCount 和 evidence.polarity
+    // 数据迁移：v3 → v4，补 starCount 和 evidence.polarity，并按 starCount 重算 status
     if ((parsed.version || 0) < 4) {
-      console.log('[store] Migrating map to v4: adding starCount');
-      for (const dim of parsed.dimensions) {
-        if (dim.starCount === undefined) {
-          // 旧证据没有 polarity，默认 +1
-          for (const ev of dim.evidence) {
-            if (ev.polarity === undefined) ev.polarity = 1;
-          }
-          dim.starCount = dim.evidence.reduce((sum, ev) => sum + (ev.polarity || 1), 0);
+      console.log('[store] Migrating map to v4: adding starCount and recalculating status');
+      parsed.dimensions = parsed.dimensions.filter(dim => {
+        // 补 polarity
+        for (const ev of dim.evidence) {
+          if (ev.polarity === undefined) ev.polarity = 1;
         }
-      }
+        dim.starCount = dim.evidence.reduce((sum, ev) => sum + (ev.polarity || 1), 0);
+        // 按 starCount 重算 status
+        if (dim.starCount > 0) dim.status = 'possessed';
+        else if (dim.starCount < 0) dim.status = 'developing';
+        // starCount === 0 → 移除该维度
+        return dim.starCount !== 0;
+      });
       parsed.version = 4;
     }
 
