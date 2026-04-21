@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Load .env
 const envPath = path.join(__dirname, '..', '.env');
@@ -24,7 +25,6 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // SESSION_SECRET 自动生成（仅 .env 缺失时）
 if (!process.env.SESSION_SECRET) {
-  const crypto = require('crypto');
   const secret = crypto.randomBytes(32).toString('hex');
   const line = 'SESSION_SECRET=' + secret;
   const envLine = '\n' + line + '\n';
