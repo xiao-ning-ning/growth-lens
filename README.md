@@ -81,7 +81,7 @@ AI 基于行为模式反推"你应该有，但自己没意识到"的能力——
 | **Node.js** | 安装地址：https://nodejs.org/（LTS 版） |
 | **.env 配置文件** | 首次启动时服务会自动创建默认配置，无需手动创建 |
 
-> 项目已包含 `node_modules` 和默认 `.env`，无需手动运行 `npm install`。
+> `start.bat` 会自动检测 `node_modules` 是否存在，若缺失则自动运行 `npm install`。`git clone` 下载包含 `node_modules`，ZIP 下载不包含但会自动补装。
 
 ### 启动步骤
 
