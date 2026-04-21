@@ -74,26 +74,41 @@ AI 基于行为模式反推"你应该有，但自己没意识到"的能力——
 
 ## 快速开始
 
-### 1. 下载项目
-```bash
-git clone https://github.com/xiao-ning-ning/growth-force-field.git
-```
-### 2. 双击 start.bat
-自动检测 Node.js、安装依赖、启动服务。若遇报错，按提示操作（Node.js 未装请先安装 nodejs.org，.env 缺失请先创建）。
+### 前置依赖
 
-### 3. 配置 .env 文件
-首次启动前，在项目根目录创建 `.env` 文件，填入以下内容：
+| 依赖 | 说明 |
+|------|------|
+| **Node.js** | 安装地址：https://nodejs.org/（LTS 版） |
+| **.env 配置文件** | 首次启动时服务会自动创建默认配置，无需手动创建 |
+
+> 项目已包含 `node_modules` 和默认 `.env`，无需手动运行 `npm install`。
+
+### 启动步骤
+
+```bash
+# 1. 下载项目
+git clone https://github.com/xiao-ning-ning/growth-force-field.git
+
+# 2. 进入目录，双击 start.bat
+# 自动检测端口占用、杀掉旧进程、启动服务、打开浏览器
+
+# 3. 登录使用
+# 打开 http://localhost:3000
+# 默认账号：admin / admin123456
+```
+
+### 自定义配置（可选）
+
+在项目根目录创建/编辑 `.env` 文件：
+
 ```env
 OPENAI_API_KEY=sk-your-api-key
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-chat
+ADMIN_PASSWORD=your-password   # 可选，不填则默认 admin/admin123456
 ```
-> `ADMIN_PASSWORD`（可选）：不填则默认账号为 `admin / admin123456`。SESSION_SECRET 会自动生成，无需手动配置。
 
-### 4. 登录使用
-打开 http://localhost:3000，用管理员账号 `admin / admin123456`（或你在 `ADMIN_PASSWORD` 中设置的密码）登录。首次登录后建议修改密码。
-
-**模型推荐**：建议优先使用 **DeepSeek**（性价比高、中文理解好、JSON 输出稳定）。支持 OpenAI / DeepSeek / 月之暗面 / 本地 Ollama（任意 OpenAI 兼容接口均可）。
+**模型推荐**：优先使用 **DeepSeek**（性价比高、中文理解好、JSON 输出稳定）。支持 OpenAI / DeepSeek / 月之暗面 / 本地 Ollama（任意 OpenAI 兼容接口均可）。
 
 ---
 
