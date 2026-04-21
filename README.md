@@ -85,17 +85,21 @@ AI 基于行为模式反推"你应该有，但自己没意识到"的能力——
 
 ### 启动步骤
 
+**Windows**：
 ```bash
-# 1. 下载项目
 git clone https://github.com/xiao-ning-ning/growth-force-field.git
-
-# 2. 进入目录，双击 start.bat
-# 自动检测端口占用、杀掉旧进程、启动服务、打开浏览器
-
-# 3. 登录使用
-# 打开 http://localhost:3000
-# 默认账号：admin / admin123456
+cd growth-force-field
+start.bat
 ```
+
+**macOS / Linux**：
+```bash
+git clone https://github.com/xiao-ning-ning/growth-force-field.git
+cd growth-force-field
+chmod +x start.sh && ./start.sh
+```
+
+> 自动检测端口占用、杀掉旧进程、启动服务、打开浏览器。
 
 ### 自定义配置（可选）
 
