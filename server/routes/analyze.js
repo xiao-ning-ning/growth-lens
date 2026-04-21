@@ -19,7 +19,8 @@ function loadSchema() {
 }
 
 // 保存成长记录快照
-function saveGrowthRecord(req, map, source) {
+// dimensions 保存本次新增的维度（分析记录）；cumulative 保存快照时的全量维度（折线图用）
+function saveGrowthRecord(req, map, source, newDimIds) {
   const userId = req.userId || req.session?.user?.username;
   if (!userId) return;
   const DATA_DIR = path.join(__dirname, '../../data/growth-records');
@@ -33,10 +34,20 @@ function saveGrowthRecord(req, map, source) {
   // 获取用户显示名：优先用基本信息设置的姓名，其次用账户名
   const displayName = map.owner || userId;
 
-  // 构建维度快照
+  // 增量快照：只保存本次新增的维度
   const dimensions = {};
+  if (newDimIds && newDimIds.length > 0) {
+    map.dimensions.forEach(d => {
+      if (newDimIds.includes(d.id)) {
+        dimensions[d.id] = d.status;
+      }
+    });
+  }
+
+  // 全量快照：保存当前所有维度（供折线图计算累计用）
+  const cumulative = {};
   map.dimensions.forEach(d => {
-    dimensions[d.id] = d.status;
+    cumulative[d.id] = d.status;
   });
 
   const record = {
@@ -44,7 +55,8 @@ function saveGrowthRecord(req, map, source) {
     timestamp: new Date().toISOString(),
     source: source || '未知来源',
     speaker: displayName,
-    dimensions,
+    dimensions,          // 本次新增维度（分析记录展示用）
+    cumulative,          // 全量维度（折线图累计计算用）
     summary: map.summary || '',
     keyFindings: [],
     completedPaths: (map.developmentPaths || []).filter(p => p.completed).map(p => p.id),
@@ -139,7 +151,7 @@ ${transcript}`;
       const parsed = JSON.parse(result);
       const updates = processSchemaResult(map, parsed, speakerName, sourceName, date);
       await saveMap(req.userId, map);
-      saveGrowthRecord(req, map, sourceName);
+      saveGrowthRecord(req, map, sourceName, updates.newDims.map(d => d.id));
       return res.json({
         success: true,
         map,
@@ -298,16 +310,14 @@ ${existingDimsSummary.length > 0 ? existingDimsSummary.map(d =>
 
     await saveMap(req.userId, map);
 
-    await saveMap(req.userId, map);
-
     // 自动保存成长记录快照
-    saveGrowthRecord(req, map, sourceName);
+    saveGrowthRecord(req, map, sourceName, updates.newDims.map(d => d.id));
 
     res.json({
       success: true,
       map,
       updates,
-      summary: result.summary,
+      summary: updates.summary,
     });
 
   } catch (error) {
@@ -694,6 +704,7 @@ function processAnalysisResult(map, result, speakerName, sourceName, date) {
     summary: result.summary || `本次分析新增${updates.newDims.length}个维度，更新${updates.updatedDims.length}个维度，移除${updates.removedDims.length}个维度`,
   });
 
+  updates.summary = result.summary || '';
   return updates;
 }
 
