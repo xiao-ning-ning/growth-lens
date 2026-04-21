@@ -78,7 +78,7 @@ AI 基于行为模式反推"你应该有，但自己没意识到"的能力——
 
 | 依赖 | 说明 |
 |------|------|
-| **Node.js** | 安装地址：https://nodejs.org/（LTS 版） |
+| **Node.js** | 若未安装，Windows 按 Win+R → 输入 `msiexec /i https://nodejs.org/dist/v22.16.0/node-v22.16.0-x64.msi` 回车；macOS：`brew install node` |
 | **.env 配置文件** | 首次启动时服务会自动创建默认配置，无需手动创建 |
 
 > `start.bat` 会自动检测 `node_modules` 是否存在，若缺失则自动运行 `npm install`。`git clone` 下载包含 `node_modules`，ZIP 下载不包含但会自动补装。
