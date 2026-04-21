@@ -12,25 +12,24 @@ echo.
 :: Check Node.js
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] 未检测到 Node.js，请先安装
+    echo [ERROR] Node.js not found. Please install it first:
     echo.
-    echo 请访问以下地址下载安装 Node.js（LTS 版本）:
-    echo   https://nodejs.org/
+    echo   https://nodejs.org/  (LTS version recommended)
     echo.
-    echo 安装完成后，重新双击 start.bat
+    echo After installing, run start.bat again.
     echo.
     pause
     exit /b
 )
 
-echo [OK] Node.js 已就绪
+echo [OK] Node.js detected
 
 :: Install dependencies if needed
 if not exist "node_modules" (
-    echo [i] 首次运行，正在安装依赖...
+    echo [INFO] Installing dependencies...
     call npm install
     if %errorlevel% neq 0 (
-        echo [ERROR] 依赖安装失败，请检查 npm 是否正常
+        echo [ERROR] npm install failed. Check your network.
         pause
         exit /b
     )
@@ -38,18 +37,18 @@ if not exist "node_modules" (
 
 :: Check .env
 if not exist ".env" (
-    echo [ERROR] 未找到 .env 配置文件
+    echo [ERROR] .env file not found.
     echo.
-    echo 请在项目根目录创建 .env 文件，至少包含:
-    echo   OPENAI_API_KEY=你的API密钥
-    echo   ADMIN_PASSWORD=你的管理员密码（至少8位）
+    echo Please create .env in the project root with at least:
+    echo   OPENAI_API_KEY=your-api-key
+    echo   ADMIN_PASSWORD=your-password^(min 8 chars^)
     echo.
-    echo 参考 README 中的配置说明
+    echo See README.md for details.
     echo.
     pause
     exit /b
 )
 
-echo [OK] 环境就绪，正在启动...
+echo [OK] All ready. Starting server...
 node server\index.js --open
 pause

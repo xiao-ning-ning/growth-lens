@@ -79,7 +79,7 @@ AI 基于行为模式反推"你应该有，但自己没意识到"的能力——
 git clone https://github.com/xiao-ning-ning/growth-force-field.git
 ```
 ### 2. 双击 start.bat
-自动检测并安装 Node.js（如未安装）、安装依赖、启动服务。
+自动检测 Node.js、安装依赖、启动服务。若遇报错，按提示操作（Node.js 未装请先安装 nodejs.org，.env 缺失请先创建）。
 
 ### 3. 配置 .env 文件
 首次启动前，先在项目根目录创建 `.env` 文件，填入以下内容：
@@ -93,7 +93,7 @@ ADMIN_PASSWORD=你的管理员密码（至少8位）
 > **首次启动必须配置 `ADMIN_PASSWORD`**，否则服务会直接退出。SESSION_SECRET（session 加密密钥）会自动生成，无需手动配置。
 
 ### 4. 登录使用
-打开 http://localhost:3000，用管理员账号 `admin` + 你设置的密码登录，登录后建议修改密码。
+打开 http://localhost:3000，用管理员账号 `admin` + 你在 `ADMIN_PASSWORD` 中设置的密码登录。首次登录后建议修改密码。
 
 **模型推荐**：建议优先使用 **DeepSeek**（性价比高、中文理解好、JSON 输出稳定）。支持 OpenAI / DeepSeek / 月之暗面 / 本地 Ollama（任意 OpenAI 兼容接口均可）。
 
