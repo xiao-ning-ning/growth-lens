@@ -1,4 +1,6 @@
-# 成长力场
+# 成长力场 / Growth Force Field
+
+### AI-Powered Capability Analysis for Managers
 
 > 知是行之始，行是知之成。先知己之所能，方知己之所向。
 
