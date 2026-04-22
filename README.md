@@ -13,6 +13,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 
+> English README: [README_EN.md](README_EN.md)
+
 ---
 
 ## 解决什么问题
@@ -20,7 +22,7 @@
 管理者面临的三大困境：
 
 场景 | 痛点 |
-|------|------|
+:|------|------|
 述职季 | 下属写了 20 页 PPT，哪些是真正的能力，哪些只是话术？ |
 晋升决策 | 凭印象打分，软性能力谁更强？说不清。 |
 培训评估 | 花了大把钱送管理层上课，学了和没学有什么区别？ |
