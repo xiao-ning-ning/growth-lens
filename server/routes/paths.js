@@ -99,7 +99,8 @@ ${levers.map(d => `- ${d.name}：${d.description}`).join('\n')}
 
     const result = await callLLM(systemPrompt, userPrompt);
 
-    // 更新修炼路径（leveragedFrom 现在是维度名称，需要映射为 ID）
+    // 清空所有旧修炼路径，再写入新数据
+    map.developmentPaths = [];
     const updates = [];
     const skipped = [];
     for (const path of (result.paths || [])) {
@@ -128,24 +129,17 @@ ${levers.map(d => `- ${d.name}：${d.description}`).join('\n')}
 
       const realTargetId = targetDim ? targetDim.id : targetBlind.id;
       const displayName = targetDim ? targetDim.name : targetBlind.name;
-      const existing = map.developmentPaths.find(p => p.targetDimension === realTargetId);
-      const pathData = {
+      const id = nextId('devpath');
+      map.developmentPaths.push({
+        id,
         targetDimension: realTargetId,
         targetName: displayName,
         leveragedFrom: validLevers,
         currentGap: path.currentGap,
         steps: path.steps,
         expectedOutcome: path.expectedOutcome,
-      };
-
-      if (existing) {
-        Object.assign(existing, pathData);
-        updates.push({ id: existing.id, name: existing.targetName, action: '更新' });
-      } else {
-        const id = nextId('devpath');
-        map.developmentPaths.push({ id, ...pathData });
-        updates.push({ id, name: displayName, action: '新增' });
-      }
+      });
+      updates.push({ id, name: displayName, action: '新增' });
     }
     if (skipped.length > 0) {
       console.log('[paths] 跳过无效路径:', skipped.map(s => `${s.name}(${s.reason})`).join(', '));

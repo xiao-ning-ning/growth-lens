@@ -102,22 +102,15 @@ ${existingCombos.length > 0 ? existingCombos.map(c => `- [${c.id}] ${c.name}: ${
         }
       });
 
-    // 更新 map：贪心选中的 + 之前已存在且此次未被选中的（保留用户手动认可的组合）
-    const selectedDimIds = new Set(selectedCombos.flatMap(c => c._dims));
-    const existingNotSelected = map.combinations.filter(c =>
-      !selectedDimIds.has(c.dimensions[0]) // 只检查第一个维度是否被占用
-    );
-    map.combinations = [
-      ...selectedCombos.map(combo => ({
-        id: nextId('combo'),
-        name: combo.name,
-        dimensions: combo._dims,
-        description: combo.description,
-        scenarios: combo.scenarios,
-        whyPowerful: combo.whyPowerful,
-      })),
-      ...existingNotSelected,
-    ];
+    // 清空旧组合，全部重新写入
+    map.combinations = selectedCombos.map(combo => ({
+      id: nextId('combo'),
+      name: combo.name,
+      dimensions: combo._dims,
+      description: combo.description,
+      scenarios: combo.scenarios,
+      whyPowerful: combo.whyPowerful,
+    }));
 
     await saveMap(req.userId, map);
     res.json({ success: true, map, combinations: map.combinations.map(c => ({ id: c.id, name: c.name, action: '新增' })) });
