@@ -125,6 +125,7 @@ app.use('/api/blindspots', require('./routes/blindspots'));
 app.use('/api/paths', require('./routes/paths'));
 app.use('/api/growth-records', require('./routes/growth-records'));
 app.use('/api/schema', require('./routes/schema'));
+app.use('/api/deepthink', require('./routes/deepthink'));
 
 // 里程碑API
 app.get('/api/milestones', (req, res) => {
