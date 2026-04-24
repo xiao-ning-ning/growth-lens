@@ -1,6 +1,6 @@
 {
   "name": "growth-lens",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "成长透镜 - 从真实行为中提取能力维度，构建不断生长的能力图谱",
   "main": "server/index.js",
   "scripts": {
