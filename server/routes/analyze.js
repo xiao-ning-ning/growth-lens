@@ -149,7 +149,7 @@ ${transcript}`;
       const schemaPrompt = buildSchemaPrompt(schema, transcript, speakerName, sourceName, date, existingDimsSummary, map);
       const result = await callLLM(schemaPrompt.system, schemaPrompt.user);
       const parsed = JSON.parse(result);
-      const updates = processSchemaResult(map, parsed, speakerName, sourceName, date);
+      const updates = processSchemaResult(map, parsed, schema, speakerName, sourceName, date);
       await saveMap(req.userId, map);
       saveGrowthRecord(req, map, sourceName, updates.newDims.map(d => d.id));
       return res.json({
@@ -425,8 +425,9 @@ ${existingDimsSummary.length > 0 ? existingDimsSummary.map(d =>
 
 /**
  * 处理 schema 模式分析结果
+ * @param {Object} schema - 自定义 schema（包含 categories 和 dimensions）
  */
-function processSchemaResult(map, result, speakerName, sourceName, date) {
+function processSchemaResult(map, result, schema, speakerName, sourceName, date) {
   const updates = { newDims: [], updatedDims: [], removedDims: [], mergeSuggestions: [], radarAxesChanges: [] };
   const sourceDate = date || new Date().toISOString().split('T')[0];
   const sourceLabel = sourceName || '未命名录音';
@@ -443,8 +444,12 @@ function processSchemaResult(map, result, speakerName, sourceName, date) {
   for (const matched of matchedDims) {
     const polarity = matched.evidence?.polarity === '-1' ? -1 : 1;
 
-    // 在已有维度中查找雷同（同名）
-    const existing = map.dimensions.find(d => d.name === matched.dimensionName);
+    // 优先按 ID 精确匹配（LLM 返回的是 dimensionId）
+    let existing = map.dimensions.find(d => d.id === matched.dimensionId);
+    // 兜底：按名称匹配（兼容旧数据或 LLM 输出名称的情况）
+    if (!existing) {
+      existing = map.dimensions.find(d => d.name === matched.dimensionName);
+    }
 
     if (existing) {
       // 追加证据
@@ -472,11 +477,22 @@ function processSchemaResult(map, result, speakerName, sourceName, date) {
     } else {
       // 创建新维度
       const dimId = nextId('dim');
+      // 从 schema 中查找该维度所属的分类 ID
+      let categoryId = '';
+      if (schema && schema.categories) {
+        for (const cat of schema.categories) {
+          const found = (cat.dimensions || []).find(d => d.id === matched.dimensionId);
+          if (found) {
+            categoryId = cat.id;
+            break;
+          }
+        }
+      }
       const dim = {
         id: dimId,
         name: matched.dimensionName,
         status: polarity > 0 ? 'possessed' : 'developing',
-        category: '',
+        category: categoryId,
         speakerId: speaker.id,
         description: '',
         evidence: [{

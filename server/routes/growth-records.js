@@ -38,7 +38,7 @@ function writeUserRecords(data) {
 
 // GET /api/growth-records - current user's records
 router.get('/', (req, res) => {
-  const userId = req.session.user?.id || req.session.user?.username;
+  const userId = req.session.user?.username;
   if (!userId) return res.status(401).json({ error: '未登录' });
   const data = readUserRecords(userId);
   res.json(data);
@@ -46,7 +46,7 @@ router.get('/', (req, res) => {
 
 // POST /api/growth-records - add a new growth record snapshot
 router.post('/', (req, res) => {
-  const userId = req.session.user?.id || req.session.user?.username;
+  const userId = req.session.user?.username;
   if (!userId) return res.status(401).json({ error: '未登录' });
 
   const { source, speaker, dimensions, summary, keyFindings, completedPaths, currentPaths } = req.body;
@@ -133,7 +133,7 @@ router.get('/user/:userId', (req, res) => {
 
 // DELETE /api/growth-records/:recordId - delete a specific record
 router.delete('/:recordId', (req, res) => {
-  const userId = req.session.user?.id || req.session.user?.username;
+  const userId = req.session.user?.username;
   if (!userId) return res.status(401).json({ error: '未登录' });
 
   const data = readUserRecords(userId);

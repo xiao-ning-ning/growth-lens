@@ -2,6 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { loadMap, saveMap } = require('../store');
 
+/**
+ * 重新计算维度的星级和状态
+ */
+function recalcDimension(dim) {
+  dim.starCount = dim.evidence.reduce((sum, ev) => sum + (ev.polarity || 1), 0);
+  if (dim.starCount > 0) {
+    dim.status = 'possessed';
+  } else if (dim.starCount < 0) {
+    dim.status = 'developing';
+  }
+  const evidenceCount = dim.evidence.length;
+  dim.confidence = evidenceCount >= 3 ? '强' : evidenceCount >= 2 ? '中' : '弱';
+}
+
 // POST /api/evidence/edit - 编辑证据引用文本
 router.post('/edit', async (req, res) => {
   try {
@@ -29,6 +43,14 @@ router.post('/edit', async (req, res) => {
 
     ev.quote = quote;
     ev.corrected = true;
+
+    // 重新计算星级和状态
+    recalcDimension(dim);
+
+    // 星级归零则移除该维度
+    if (dim.starCount === 0) {
+      map.dimensions = map.dimensions.filter(d => d.id !== dimensionId);
+    }
 
     await saveMap(req.userId, map);
     res.json({ success: true });
